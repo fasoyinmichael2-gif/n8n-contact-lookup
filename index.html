@@ -108,16 +108,10 @@
 	</style>
 	<script language="javascript">
 		// --- API Configuration (from original joke flow) ---
-		if (window.location.hostname=="www.semkhor.com") {
-			// live
-			API_CLIENT_CODE = "semkhorproductions1";
-			API_URL = "https://www.semkhor.com/api/";
-		}
-		else {
-			// dev (You are using this for your testing)
-			API_CLIENT_CODE = "abctooldyeco";
-			API_URL = "https://site01.semlab.net/api/";
-		}
+		// --- TEMPORARY FIX: FORCING PRODUCTION API URL TO TEST CONNECTIVITY ---
+API_CLIENT_CODE = "semkhorproductions1"; 
+API_URL = "https://www.semkhor.com/api/"; 
+// ----------------------------------------------------------------------
         
         // ** NOTE: This must match your n8n workspace URL **
         const N8N_BASE_URL = "https://alexsemkhor.app.n8n.cloud"; 
