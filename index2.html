@@ -349,3 +349,216 @@
     // Stage 4: Resume workflow with user decision (SAVE/REJECT)
     async function respondToSave(saveData) {
         const payload = {
+            saveToSheets: saveData, 
+            // Note: In your n8n workflow, the Wait node passes the execution data 
+            // from the AI node, so this manual packaging may not be needed, but it is harmless.
+            contactInfo: currentContactInfo, 
+            requestPrompt: document.getElementById("lookup_prompt").value 
+        };
+
+        const saveBtn = document.getElementById('saveBtn');
+        const rejectBtn = document.getElementById('rejectBtn');
+        const activeBtn = saveData ? saveBtn : rejectBtn;
+        const originalText = activeBtn.innerHTML;
+        
+        showLoading(activeBtn, saveData ? 'Saving to Sheets...' : 'Canceling Save...');
+        saveBtn.disabled = true;
+        rejectBtn.disabled = true;
+        saveBtn.classList.add('disabled-button');
+        rejectBtn.classList.add('disabled-button');
+
+        try {
+            // Post the payload to the n8n Wait node resume URL
+            const response = await fetch(API_URL+'util/json-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE },
+                body: JSON.stringify({
+                    url: executionResumeUrl, 
+                    method: 'POST',
+                    headers: [{"name": "token", "value": "{auth:n8n_header}"}],
+                    data: payload 
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            hideLoading(activeBtn, originalText);
+            
+            const completionMsg = saveData ?	
+                '✅ Success! Contact details have been saved to Google Sheets. 💾' :	
+                '❌ Decision finalized. Data was NOT saved to Google Sheets. 👍';
+            
+            const completionDiv = document.createElement('div');
+            completionDiv.className = 'completion-message';
+            completionDiv.innerHTML = completionMsg;
+            document.getElementById('reviewSection').appendChild(completionDiv);
+            
+            showStatus('Workflow completed successfully!', 'success');
+            
+            // Show a reset button and the "View Saved Data" button
+            setTimeout(() => {
+                const resetBtn = document.createElement('button');
+                resetBtn.innerHTML = '🔄 Start New Lookup';
+                resetBtn.onclick = resetForm;
+                resetBtn.style.marginTop = '20px';
+                document.getElementById('reviewSection').appendChild(resetBtn);
+
+                const viewBtn = document.createElement('button');
+                viewBtn.innerHTML = '📂 View Saved Data';
+                viewBtn.onclick = viewSavedData;
+                viewBtn.classList.add('button_view');
+                document.getElementById('reviewSection').appendChild(viewBtn);
+
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error responding:', error);
+            showStatus(`Error resuming workflow: ${error.message}`, 'error');
+            
+            // Re-enable buttons on error
+            saveBtn.disabled = false;
+            rejectBtn.disabled = false;
+            saveBtn.classList.remove('disabled-button');
+            rejectBtn.classList.remove('disabled-button');
+            hideLoading(activeBtn, originalText);
+        }
+    }
+
+    // Feature: Display previously saved data
+    async function viewSavedData() {
+        const viewPanel = document.getElementById('savedDataSection');
+        const resultDiv = document.getElementById('savedDataTableContainer');
+        viewPanel.style.display = 'block';
+        resultDiv.innerHTML = '<div class="waiting-animation">Fetching saved data...</div>';
+
+        try {
+            // CORRECTED URL using the SAVED_DATA_WEBHOOK_ID variable
+            const SAVED_DATA_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`; 
+
+            const fetchSavedData = await fetch(API_URL+'util/json-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
+                },
+                body: JSON.stringify({
+                    url: SAVED_DATA_WEBHOOK_URL,
+                    method: 'POST',
+                    headers: [{"name": "token", "value": "{auth:n8n_header}"}],
+                    data: {"action": "get_all"} 
+                })
+            });
+
+            if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
+            const data = await fetchSavedData.json();
+
+            // *** FIX: Corrected path from data.response.return to data.return for SEMKHOR API compliance ***
+            const savedContacts = data.return || []; 
+            
+            if (savedContacts.length === 0) {
+                resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet via the API. Ensure the "GET ALL" webhook is configured.</p>';
+                return;
+            }
+
+            let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request</th><th>Contact Info Snippet</th><th>Saved At</th></tr></thead><tbody>';
+            
+            savedContacts.forEach(row => {
+                const request = row.Business || 'N/A'; // Match Sheets column headers
+                const contactInfo = row['Contact Name'] || ''; // Match Sheets column headers
+                const timestamp = row.Timestamp || new Date().toISOString(); // Match Sheets column headers
+
+                const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
+                const date = new Date(timestamp).toLocaleDateString();
+
+                tableHTML += `
+                    <tr>
+                        <td>${request}</td>
+                        <td>${snippet}</td>
+                        <td>${date}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            resultDiv.innerHTML = tableHTML;
+            document.getElementById('savedDataSection').scrollIntoView({ behavior: 'smooth' });
+
+
+        } catch (error) {
+            console.error('Error fetching saved data:', error);
+            resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}. Ensure the 'GET ALL' n8n workflow is active.</p>`;
+        }
+    }
+
+    function resetForm() {
+        // Clear all state and display the initial input panel
+        document.getElementById('lookupInput').style.display = 'block';
+        document.getElementById('reviewSection').style.display = 'none';
+        document.getElementById('savedDataSection').style.display = 'none';
+        document.getElementById('lookup_prompt').value = '';
+        document.getElementById('contact_content').innerHTML = '';
+        
+        // Re-enable input controls and restore original button text
+        document.getElementById('lookup_prompt').disabled = false;
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Look Up Contact!';
+        
+        // Reset review buttons
+        const saveBtn = document.getElementById('saveBtn');
+        const rejectBtn = document.getElementById('rejectBtn');
+        saveBtn.disabled = false;
+        rejectBtn.disabled = false;
+        saveBtn.classList.remove('disabled-button');
+        rejectBtn.classList.remove('disabled-button');
+        
+        // Clear status and completion messages
+        const statusDiv = document.getElementById('status');
+        if (statusDiv) { statusDiv.remove(); }
+        const completionDiv = document.querySelector('.completion-message');
+        if (completionDiv) { completionDiv.remove(); }
+        const reviewBtns = document.querySelectorAll('#reviewSection button');
+        reviewBtns.forEach(btn => {
+            if (btn.innerHTML.includes('Start New Lookup') || btn.innerHTML.includes('View Saved Data')) {
+                btn.remove();
+            }
+        });
+        
+        // Reset global variables
+        executionId = null;
+        executionResumeUrl = null;
+        currentContactInfo = null;
+        
+        document.getElementById('lookupInput').scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+</head>
+<body>
+
+	<div class="header">
+		<img src="ai-joke/images/semkhor_transparent.png" alt="SEMKHOR Logo">
+	</div>
+
+	<div class="panel" id="lookupInput">
+		Find contact information for...
+		<input type="text" id="lookup_prompt" placeholder="e.g., procurement manager of Bokku! Mart in East Lagos"><br>
+		<button id="submitBtn" onclick="submitContactPrompt()">Look Up Contact!</button>
+	</div>
+	
+	<div class="panel" id="reviewSection" style="display: none;">
+		<h3 style="margin-bottom: 10px;">Review AI-Generated Contact Information</h3>
+		<div id="contact_content"></div>
+		<button id="saveBtn" class="button_save" onclick="respondToSave(true)">Save to Google Sheets</button>
+		<button id="rejectBtn" class="button_reject" onclick="respondToSave(false)">Reject, Do Not Save</button>
+	</div>
+
+    <div class="panel" id="savedDataSection" style="display: none;">
+		<h3 style="margin-bottom: 10px; color: #5a67d8;">Previously Saved Contact Leads</h3>
+		<div id="savedDataTableContainer">
+			</div>
+        <button onclick="document.getElementById('savedDataSection').style.display='none'; document.getElementById('reviewSection').scrollIntoView({ behavior: 'smooth' });">Hide Table</button>
+	</div>
+
+
+</body>
+</html>
