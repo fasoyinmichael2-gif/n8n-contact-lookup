@@ -1,510 +1,573 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>AI Contact Lookup & Save</title>
-	<style>
-		/* Base CSS is taken from the joke flow to maintain consistent branding */
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-		body {
-			font-family: 'Comic Sans MS', 'Trebuchet MS', Arial, sans-serif;
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			min-height: 100vh;
-			padding: 20px;
-			color: #333;
-		}
-		.header { text-align: center; margin-bottom: 30px; animation: bounceIn 1s ease-out; }
-		.panel {
-			background: rgba(255, 255, 255, 0.95);
-			border-radius: 20px;
-			padding: 30px;
-			margin: 20px auto;
-			max-width: 800px; /* Increased width for table display */
-			box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-			transform: translateY(20px);
-			opacity: 0;
-			animation: slideUp 0.8s ease-out forwards;
-			position: relative;
-			overflow: hidden;
-		}
-		.panel::before {
-			content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
-			background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
-			border-radius: 22px; z-index: -1; animation: rainbow 3s linear infinite;
-		}
-		
-		#lookupInput, #reviewSection, #savedDataSection {
-			text-align: center; font-size: 1.2em; font-weight: bold; color: #5a67d8;
-			margin-bottom: 20px;
-		}
-		
-		input[type="text"] {
-			padding: 15px 20px; border: 3px solid #667eea; border-radius: 25px;
-			font-size: 1.1em; margin: 15px 10px; width: 400px; /* Wider input */
-			outline: none; transition: all 0.3s ease; font-family: inherit;
-		}
-		
-		button {
-			padding: 15px 30px; border: none; border-radius: 25px;
-			font-size: 1.1em; font-weight: bold; cursor: pointer;
-			transition: all 0.3s ease; margin: 10px; font-family: inherit;
-			position: relative; overflow: hidden;
-		}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Contact Lookup & Save</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
 
-		#lookupInput button {
-			background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
-			color: white; box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
-		}
-		
-		.button_save {
-			background: linear-gradient(45deg, #4ecdc4, #44a08d);
-			color: white; box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
-		}
-		.button_reject {
-			background: linear-gradient(45deg, #f093fb, #f5576c);
-			color: white; box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
-		}
-		.button_view {
-			background: linear-gradient(45deg, #5a67d8, #667eea);
-			color: white; box-shadow: 0 5px 15px rgba(90, 103, 216, 0.4);
-		}
+        /* Custom styles for animations and specific visual flair, keeping the joke generator's aesthetic */
+        .panel-bg {
+            /* Mimics the colorful background of the original panel */
+            background: rgba(255, 255, 255, 0.95);
+            position: relative;
+            overflow: hidden;
+        }
+        .panel-bg::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+            border-radius: 1.625rem; /* slightly larger than rounded-3xl */
+            z-index: -1;
+            animation: rainbow 3s linear infinite;
+        }
 
-		#contact_content {
-			background: #f8f9ff; border-radius: 15px; padding: 20px; margin: 20px 0;
-			font-size: 1.1em; line-height: 1.6; border-left: 5px solid #667eea;
-			box-shadow: inset 0 0 10px rgba(102, 126, 234, 0.1);
-			min-height: 60px; text-align: left; white-space: pre-wrap;
-		}
-
-		/* Table for saved data */
-		#savedDataTable {
-			width: 100%; border-collapse: collapse; margin-top: 20px;
-			font-size: 0.9em;
-		}
-		#savedDataTable th, #savedDataTable td {
-			border: 1px solid #ddd; padding: 12px; text-align: left;
-		}
-		#savedDataTable th {
-			background-color: #f2f2f2; color: #333; font-weight: bold;
-		}
-		#savedDataTable tr:nth-child(even) { background-color: #f9f9f9; }
-		#savedDataTable tr:hover { background-color: #f0f0f0; }
-
-		.completion-message {
-			background: linear-gradient(45deg, #4ecdc4, #44a08d);
-			color: white; padding: 20px; border-radius: 15px; margin: 20px 0;
-			font-size: 1.2em; font-weight: bold; text-align: center;
-			box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
-			animation: slideUp 0.5s ease-out;
-		}
-		.disabled-button { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-		
-		/* Include keyframes from previous source for visual effects */
-		@keyframes bounceIn { 0% { transform: scale(0.3) rotate(-10deg); opacity: 0; } 50% { transform: scale(1.1) rotate(2deg); } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
-		@keyframes slideUp { to { transform: translateY(0); opacity: 1; } }
-		@keyframes rainbow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-		.waiting-animation { /* Assume this CSS is carried over from the joke flow */ }
-	</style>
-	<script language="javascript">
-		// --- API Configuration (from original joke flow) ---
-		// --- TEMPORARY FIX: FORCING PRODUCTION API URL TO TEST CONNECTIVITY ---
-API_CLIENT_CODE = "semkhorproductions1"; 
-API_URL = "https://www.semkhor.com/api/"; 
-// ----------------------------------------------------------------------
+        @keyframes rainbow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
         
-        // ** NOTE: This must match your n8n workspace URL **
-        const N8N_BASE_URL = "https://alexsemkhor.app.n8n.cloud"; 
-        
-        // ** FINALIZED CONFIGURATION (READ DATA) **
-        const SAVED_DATA_WEBHOOK_ID = "d6c04913-2e31-4a0e-ac01-f8a5341fa133";
-        // Path assumes the AI node is named 'Contact Lookup AI'
-        const CONTACT_OUTPUT_PATH = "data.resultData.runData[\"Contact Lookup AI\"][0].data.main[0][0].json.message.content";
-        
-        
-		// Global variables to store execution data
-		let executionId = null;
-		let executionResumeUrl = null;
-		let currentContactInfo = null;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading {
+            display: inline-block;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-10 flex flex-col items-center bg-gradient-to-br from-indigo-500 to-purple-700 text-gray-800">
 
-        // --- Utility Functions (Assumed to be present from Joke Flow) ---
-        // For demonstration, these are simplified stubs.
-        function showStatus(message, type = 'info') { 
-            const statusDiv = document.getElementById('status') || document.createElement('div');
-            if (!document.getElementById('status')) {
-                statusDiv.id = 'status';
-                statusDiv.classList.add('status-message');
-                document.getElementById('lookupInput').appendChild(statusDiv);
+    <!-- Header / Logo -->
+    <div class="text-center mb-8">
+        <!-- Using a placeholder for the SEMKHOR logo -->
+        <h1 class="text-4xl font-extrabold text-white drop-shadow-lg">SEMKHOR</h1>
+        <p class="text-indigo-200 mt-1">AI Contact & Data Lookup</p>
+    </div>
+
+    <!-- Main Input Panel -->
+    <div id="contactInput" class="panel-bg p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl transition duration-500 hover:shadow-indigo-500/50">
+        <p class="text-lg font-semibold text-center text-indigo-700 mb-4">
+            Find contact information for...
+        </p>
+        <input type="text" id="contact_query" placeholder="procurement manager of the Bokku! Mart in East Lagos" class="w-full p-4 border-2 border-indigo-500 rounded-xl text-lg mb-6 focus:border-cyan-500 focus:ring-0 transition duration-300">
+        <button id="submitBtn" onclick="submitPrompt()" class="w-full py-4 text-xl font-bold text-white rounded-xl shadow-lg transition duration-300 ease-in-out bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 hover:shadow-xl">
+            Look Up Contact!
+        </button>
+    </div>
+    
+    <!-- Status Message Area -->
+    <div id="status" class="status-message w-full max-w-xl my-4 text-center font-medium p-3 rounded-lg hidden"></div>
+
+    <!-- Review Panel (Hidden by default) -->
+    <div id="contactReview" class="panel-bg p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl mt-8 transition duration-500" style="display:none;">
+        <h2 class="text-2xl font-bold text-center text-indigo-700 mb-4">Review Contact Information</h2>
+        <p class="text-center text-gray-600 mb-4">Would you like to save this result to your history?</p>
+        <div id="contact_content" class="bg-indigo-50 border-l-4 border-indigo-500 rounded-lg p-4 md:p-6 text-base md:text-lg whitespace-pre-wrap min-h-20 flex items-center justify-center text-gray-700 shadow-inner">
+            <!-- Contact info will be displayed here -->
+        </div>
+        <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
+            <button class="button_yes w-full sm:w-1/2 py-3 text-lg font-bold text-white rounded-xl transition duration-300 ease-in-out bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 shadow-md" onclick="respond(true)">
+                Yes, Save to History!
+            </button>
+            <button class="button_no w-full sm:w-1/2 py-3 text-lg font-bold text-white rounded-xl transition duration-300 ease-in-out bg-gradient-to-r from-pink-500 to-red-600 hover:from-pink-600 hover:to-red-700 shadow-md" onclick="respond(false)">
+                No, Discard
+            </button>
+        </div>
+    </div>
+
+    <!-- Previously Saved Contacts Section -->
+    <div id="historySection" class="bg-white p-6 md:p-8 w-full max-w-xl rounded-2xl shadow-xl mt-8 transition duration-500">
+        <h2 class="text-2xl font-bold text-indigo-700 mb-4 border-b pb-2">Your Saved Contacts (History)</h2>
+        <div id="history_list" class="space-y-4">
+            <p id="history_loading" class="text-gray-500">Loading history...</p>
+            <p id="history_empty" class="text-gray-500 hidden">No contacts saved yet.</p>
+            <!-- History items will be loaded here -->
+        </div>
+    </div>
+    
+    <!-- FIREBASE AND APP LOGIC -->
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc, setDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ====================================================================
+        // CONFIGURATION (PLEASE UPDATE THESE PLACEHOLDERS)
+        // ====================================================================
+        
+        // This is the full URL of your N8N Webhook Trigger node.
+        // E.g., 'https://your-workspace.app.n8n.cloud/webhook/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'
+        const N8N_WEBHOOK_URL = "https://your-n8n-domain.app.n8n.cloud/webhook/YOUR_WEBHOOK_ID";
+        
+        // This is the domain of your N8N workspace for the polling API call.
+        // E.g., 'https://alexsemkhor.app.n8n.cloud'
+        const N8N_WORKFLOW_DOMAIN = "https://your-n8n-domain.app.n8n.cloud";
+
+        // The name of the node where the contact data is returned in your N8N execution output.
+        // This path must match the JSON output field name you configured in the 'n8n-poll' tool.
+        // For the joke app, this was "Message a model". We assume your LLM node is the same.
+        const LLM_NODE_NAME = "Message a model";
+
+        // ====================================================================
+        // GLOBAL VARIABLES & FIREBASE SETUP
+        // ====================================================================
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        // Global variables for N8N execution data
+        let executionId = null;
+        let executionResumeUrl = null;
+        let currentContactResult = null;
+        
+        // Firestore path helpers
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-contact-lookup-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // SEMKHOR API constants (copied from joke app source)
+        const API_CLIENT_CODE = window.location.hostname === "www.semkhor.com" ? "semkhorproductions1" : "abctooldyeco";
+        const API_URL = window.location.hostname === "www.semkhor.com" ? "https://www.semkhor.com/api/" : "https://site01.semlab.net/api/";
+
+        function initFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Set Firestore log level to debug for better diagnostics
+                setLogLevel('debug');
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        loadHistory();
+                    } else {
+                        // Sign in anonymously if no token is provided, or if sign-in failed
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    }
+                });
+
+            } catch (e) {
+                console.error("Firebase initialization failed:", e);
+                // Fallback to anonymous ID if Firebase fails
+                userId = crypto.randomUUID();
+                isAuthReady = true;
+                // Note: We don't call showStatus here to avoid potential race conditions before the DOM is fully loaded.
+                const historyLoading = document.getElementById('history_loading');
+                if (historyLoading) {
+                    historyLoading.textContent = 'Error loading history: Firebase failed to initialize.';
+                }
             }
-            statusDiv.className = `status-message status-${type}`;
+        }
+
+        /**
+         * Loads and displays the user's previously saved contacts from Firestore in real-time.
+         */
+        function loadHistory() {
+            if (!isAuthReady || !db) return;
+            
+            const historyRef = collection(db, `artifacts/${appId}/users/${userId}/contact_lookups`);
+            const q = query(historyRef);
+
+            // Use onSnapshot for real-time updates
+            onSnapshot(q, (snapshot) => {
+                const historyList = document.getElementById('history_list');
+                const historyEmpty = document.getElementById('history_empty');
+                const historyLoading = document.getElementById('history_loading');
+                
+                // Clear the list first
+                historyList.innerHTML = '';
+
+                const contacts = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })).sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds); // Sort by newest first
+
+                if (contacts.length === 0) {
+                    if (historyEmpty) historyEmpty.classList.remove('hidden');
+                    if (historyLoading) historyLoading.classList.add('hidden');
+                    return;
+                }
+
+                if (historyEmpty) historyEmpty.classList.add('hidden');
+                if (historyLoading) historyLoading.classList.add('hidden');
+                
+                contacts.forEach(contact => {
+                    const item = document.createElement('div');
+                    item.className = 'bg-gray-50 p-4 border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 transition duration-150';
+                    
+                    const timestamp = contact.timestamp?.toDate ? contact.timestamp.toDate().toLocaleString() : 'N/A';
+                    
+                    item.innerHTML = `
+                        <p class="font-bold text-indigo-600 mb-1">${contact.query || 'Untitled Query'}</p>
+                        <pre class="text-sm bg-white p-2 border rounded-md text-gray-700 whitespace-pre-wrap">${contact.result || 'No contact found.'}</pre>
+                        <p class="text-xs text-gray-400 mt-2">Saved: ${timestamp}</p>
+                    `;
+                    historyList.appendChild(item);
+                });
+            }, (error) => {
+                console.error("Error loading history:", error);
+                const historyLoading = document.getElementById('history_loading');
+                if (historyLoading) {
+                    historyLoading.textContent = 'Error fetching history data.';
+                }
+            });
+        }
+        
+        // ====================================================================
+        // N8N WORKFLOW LOGIC (ADAPTED FROM JOKE APP)
+        // ====================================================================
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            
+            // FIX: Check if statusDiv exists before manipulating its classList
+            if (!statusDiv) {
+                console.error('Status div not found, cannot show status message.');
+                return;
+            }
+
+            statusDiv.classList.remove('hidden', 'status-success', 'status-error', 'status-info');
+            
+            let bgColor = 'bg-blue-100 border-blue-400 text-blue-800';
+            if (type === 'success') bgColor = 'bg-green-100 border-green-400 text-green-800';
+            if (type === 'error') bgColor = 'bg-red-100 border-red-400 text-red-800';
+            
+            statusDiv.className = `status-message w-full max-w-xl my-4 text-center font-medium p-3 rounded-lg border-2 ${bgColor}`;
             statusDiv.innerHTML = message;
         }
-        function showLoading(element, text = 'Processing...') { 
-            element.innerHTML = `<span class="loading"></span>${text}`;
+
+        function showLoading(element, text = 'Processing...') {
+            element.innerHTML = `<span class="loading mr-2"></span>${text}`;
             element.disabled = true;
-            element.classList.add('disabled-button');
+            element.classList.add('opacity-50', 'cursor-not-allowed');
         }
+
         function hideLoading(element, originalText) {
             element.innerHTML = originalText;
             element.disabled = false;
-            element.classList.remove('disabled-button');
+            element.classList.remove('opacity-50', 'cursor-not-allowed');
         }
-        function formatText(text) { 
-            // Simple text formatting, similar to the joke flow
-            return (text || '')
-				.replace(/\\n/g, '<br>')
-				.replace(/\\r/g, '')
-				.replace(/\\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
-				.replace(/\\"/g, '"')
-				.replace(/\\'/g, "'")
-				.replace(/\\\\/g, '\\')
-				.trim();
+        
+        function formatContactText(text) {
+            if (!text) return 'No contact information was returned by the AI.';
+            // Clean up and format the text, replacing common JSON escapes
+            return text
+                .replace(/\\n/g, '\n')
+                .replace(/\\r/g, '')
+                .replace(/\\t/g, '    ')
+                .replace(/\\"/g, '"')
+                .replace(/\\'/g, "'")
+                .trim();
         }
-        function createStatusDiv() { /* Assume implemented */ }
-        
-        // -------------------------------------------------------------------
-        
-		// Stage 1: Initial Prompt Submission (START WORKFLOW)
-		async function submitContactPrompt() {
-			const promptElement = document.getElementById("lookup_prompt");
-			const lookupPrompt = promptElement.value.trim();
-            const submitBtn = document.getElementById('submitBtn');
-			const originalText = submitBtn.innerHTML;
 
-			if (!lookupPrompt) {
-				showStatus('Please enter a request for contact information!', 'error');
-				return;
-			}
+        window.submitPrompt = async function() {
+            const contactQuery = document.getElementById("contact_query").value.trim();
+            if (!contactQuery) {
+                showStatus('Please enter a query for the contact search!', 'error');
+                return;
+            }
 
-			submitBtn.disabled = true;
-			promptElement.disabled = true;
-			showLoading(submitBtn, 'Searching AI...');
-			document.getElementById('contact_content').innerHTML = '<div class="waiting-animation"></div>';
-			showStatus('Starting contact lookup workflow...', 'info');
-
-			try {
-				// 1. Trigger N8N workflow via semkhor json-proxy
-				const response = await fetch(API_URL+'util/json-proxy', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
-					},
-					body: JSON.stringify({
-						url: `${N8N_BASE_URL}/webhook/${CONTACT_WEBHOOK_ID}`,
-						method: 'POST',
-						headers: [{"name": "token", "value": "{auth:n8n_header}"}],
-						data: {"prompt": lookupPrompt}
-					})
-				});
-
-				if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-				const data = await response.json();
-				
-				// 2. Extract execution details from N8N's immediate response
-				executionId = data.response.executionId;
-				executionResumeUrl = data.response.executionResumeUrl;
-
-				if (!executionId || !executionResumeUrl) {
-					throw new Error('Missing execution data from workflow response');
-				}
-
-				showStatus('AI is looking up contact details...', 'info');
-				
-				// 3. Start polling
-				await workflowWait(submitBtn, originalText);
-
-			} catch (error) {
-				console.error('Error submitting prompt:', error);
-				showStatus(`Error: ${error.message}`, 'error');
-				// Re-enable controls on error
-				submitBtn.disabled = false;
-				promptElement.disabled = false;
-				document.getElementById('contact_content').innerHTML = '';
-				hideLoading(submitBtn, originalText);
-			}
-		}
-
-		// Stage 2: Polling for AI result (PAUSE/POLL)
-		async function workflowWait(submitBtn, originalText) {
-			const maxCycles = 5; // Allow for more time for external lookups
-			let currentCycle = 1;
-
-			const pollCycle = async () => {
-				try {
-					showStatus(`Polling for AI result... (cycle ${currentCycle}/${maxCycles})`, 'info');
-					
-					// Poll the n8n execution status (via semkhor ai/n8n-poll)
-					const response = await fetch(API_URL+'ai/n8n-poll', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
-						},
-						body: JSON.stringify({
-							url: `${N8N_BASE_URL}/api/v1/executions/${executionId}`,
-							headers: [{"name": "X-N8N-API-KEY", "value": "{auth:n8n_api_key}"}],
-							output_paths: [CONTACT_OUTPUT_PATH]
-						})
-					});
-
-					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-					const data = await response.json();
-					
-					// Check if we have a result and are at the Wait node
-					if (data.response.status === 'waiting' && data.response.value1) {
-						currentContactInfo = data.response.value1;
-						// Hide loading/re-enable submit button (only happens if polling failed on first try)
-						hideLoading(submitBtn, originalText); 
-						reviewContactInfo(currentContactInfo);
-						return; // Stop polling
-					}
-
-					// Check if the endpoint timed out (n8n is still running)
-					if (data.response.status === 'timeout' && currentCycle < maxCycles) {
-						currentCycle++;
-						showStatus(`AI is taking longer than usual... trying again (cycle ${currentCycle}/${maxCycles})`, 'info');
-						setTimeout(pollCycle, 4000); // Wait 4 seconds before next cycle
-					} else if (data.response.status === 'timeout') {
-						throw new Error('Maximum wait time exceeded. The workflow might have stalled or timed out completely.');
-					} else {
-                        // Unexpected status (e.g., failed, error)
-						throw new Error(`Unexpected response status: ${data.response.status}`);
-					}
-
-				} catch (error) {
-					console.error('Error polling workflow:', error);
-					showStatus(`Error waiting for result: ${error.message}`, 'error');
-					hideLoading(submitBtn, originalText);
-					document.getElementById("lookup_prompt").disabled = false;
-					document.getElementById('contact_content').innerHTML = '';
-				}
-			};
-
-			pollCycle();
-		}
-
-		// Stage 3: Display results and ask for save decision
-		function reviewContactInfo(info) {
-			showStatus('Contact information found!', 'success');
-			
-			const formattedInfo = formatText(info);
-			document.getElementById('contact_content').innerHTML = `**Request:** ${document.getElementById("lookup_prompt").value}<br><br>**AI Result:**<br>${formattedInfo}`;
-			
-			// Switch UI panels
-			document.getElementById('lookupInput').style.display = 'none';
-			document.getElementById('reviewSection').style.display = 'block';
-			
-			document.getElementById('reviewSection').scrollIntoView({ behavior: 'smooth' });
-		}
-
-		// Stage 4: Resume workflow with user decision (SAVE/REJECT)
-		async function respondToSave(saveData) {
-			const payload = {
-				saveToSheets: saveData // The boolean payload for the n8n If node
-			};
-
-			const saveBtn = document.getElementById('saveBtn');
-			const rejectBtn = document.getElementById('rejectBtn');
-			const activeBtn = saveData ? saveBtn : rejectBtn;
-			const originalText = activeBtn.innerHTML;
-			
-			showLoading(activeBtn, saveData ? 'Saving to Sheets...' : 'Canceling Save...');
-			saveBtn.disabled = true;
-			rejectBtn.disabled = true;
-			saveBtn.classList.add('disabled-button');
-			rejectBtn.classList.add('disabled-button');
-
-			try {
-				// Post the payload to the n8n Wait node resume URL
-				const response = await fetch(API_URL+'util/json-proxy', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						url: executionResumeUrl,
-						method: 'POST',
-						headers: [{"name": "token", "value": "{auth:n8n_header}"}],
-						data: payload
-					})
-				});
-
-				if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-				hideLoading(activeBtn, originalText);
-				
-				const completionMsg = saveData ?	
-					'✅ Success! Contact details have been saved to Google Sheets. 💾' :	
-					'❌ Decision finalized. Data was NOT saved to Google Sheets. 👍';
-				
-				const completionDiv = document.createElement('div');
-				completionDiv.className = 'completion-message';
-				completionDiv.innerHTML = completionMsg;
-				document.getElementById('reviewSection').appendChild(completionDiv);
-				
-				showStatus('Workflow completed successfully!', 'success');
-				
-				// Show a reset button and the "View Saved Data" button
-				setTimeout(() => {
-					const resetBtn = document.createElement('button');
-					resetBtn.innerHTML = '🔄 Start New Lookup';
-					resetBtn.onclick = resetForm;
-					resetBtn.style.marginTop = '20px';
-					document.getElementById('reviewSection').appendChild(resetBtn);
-
-					const viewBtn = document.createElement('button');
-					viewBtn.innerHTML = '📂 View Saved Data';
-					viewBtn.onclick = viewSavedData;
-					viewBtn.classList.add('button_view');
-					document.getElementById('reviewSection').appendChild(viewBtn);
-
-				}, 1500);
-
-			} catch (error) {
-				console.error('Error responding:', error);
-				showStatus(`Error resuming workflow: ${error.message}`, 'error');
-				
-				// Re-enable buttons on error
-				saveBtn.disabled = false;
-				rejectBtn.disabled = false;
-				saveBtn.classList.remove('disabled-button');
-				rejectBtn.classList.remove('disabled-button');
-				hideLoading(activeBtn, originalText);
-			}
-		}
-
-        // Feature: Display previously saved data
-        async function viewSavedData() {
-            const viewPanel = document.getElementById('savedDataSection');
-            const resultDiv = document.getElementById('savedDataTableContainer');
-            viewPanel.style.display = 'block';
-            resultDiv.innerHTML = '<div class="waiting-animation">Fetching saved data...</div>';
+            // The full prompt sent to the LLM node
+            const prompt = `Find the contact information (email, phone, other relevant details) for: "${contactQuery}". Respond only with the contact information in a clear, formatted text block.`;
+            const submitBtn = document.getElementById("submitBtn");
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            document.getElementById("contact_query").disabled = true;
+            
+            showLoading(submitBtn, 'Searching...');
+            showStatus('Starting contact lookup workflow...', 'info');
+            document.getElementById('contact_content').innerHTML = '<p class="text-lg text-indigo-500 animate-pulse">🤖 AI is searching for contacts, please wait...</p>';
 
             try {
-                // NOTE: This requires a separate N8N workflow (or a separate endpoint
-                // on your existing flow) that executes a Google Sheets "Get All" operation 
-                // and returns the JSON data. This is a common pattern for displaying data.
-                // For demonstration, we'll use a placeholder URL and assume the returned
-                // JSON structure is simple (array of objects).
-
-                const fetchSavedData = await fetch(API_URL+'util/json-proxy', {
+                // 1. Trigger Workflow via semkhor/api/util/json-proxy
+                const response = await fetch(API_URL + 'util/json-proxy', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
                     },
                     body: JSON.stringify({
-                        url: `${N8N_BASE_URL}/webhook/[SAVED_DATA_WEBHOOK_ID]`, // **Placeholder for a Read/GET Webhook**
+                        url: N8N_WEBHOOK_URL, // Use the new constant
                         method: 'POST',
                         headers: [{"name": "token", "value": "{auth:n8n_header}"}],
-                        data: {"action": "get_all"}
+                        data: {"prompt": prompt, "query_text": contactQuery} // Send both full prompt and raw query
                     })
                 });
 
-                if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
-                const data = await fetchSavedData.json();
-
-                // Assuming data.response.return is an array of saved contact objects
-                const savedContacts = data.response.return || []; 
-                
-                if (savedContacts.length === 0) {
-                    resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet via the API.</p>';
-                    return;
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request</th><th>Contact Info Snippet</th><th>Saved At</th></tr></thead><tbody>';
+                const data = await response.json();
                 
-                savedContacts.forEach(row => {
-                    // Truncate the long Contact Info response for the table
-                    const snippet = (row.contact_info || row['Contact Info']).substring(0, 70) + '...';
-                    tableHTML += `
-                        <tr>
-                            <td>${row.request || row.Request}</td>
-                            <td>${snippet}</td>
-                            <td>${new Date(row.timestamp || row['Saved At']).toLocaleDateString()}</td>
-                        </tr>
-                    `;
-                });
+                executionId = data.response.executionId;
+                executionResumeUrl = data.response.executionResumeUrl;
 
-                tableHTML += '</tbody></table>';
-                resultDiv.innerHTML = tableHTML;
-                document.getElementById('savedDataSection').scrollIntoView({ behavior: 'smooth' });
+                if (!executionId || !executionResumeUrl) {
+                    throw new Error('Missing execution data from workflow response. Check N8N webhook configuration.');
+                }
 
+                showStatus('AI is working on your query...', 'info');
+                
+                // Chain to workflowWait
+                await workflowWait(contactQuery);
 
             } catch (error) {
-                console.error('Error fetching saved data:', error);
-                resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}. Ensure the 'GET ALL' n8n workflow is active.</p>`;
+                console.error('Error submitting prompt:', error);
+                showStatus(`Error: ${error.message}. Please check console for details.`, 'error');
+                // Re-enable controls on error
+                submitBtn.disabled = false;
+                document.getElementById("contact_query").disabled = false;
+                document.getElementById('contact_content').innerHTML = '';
+                hideLoading(submitBtn, originalText);
             }
         }
 
-		function resetForm() {
-			// Clear all state and display the initial input panel
-			document.getElementById('lookupInput').style.display = 'block';
-			document.getElementById('reviewSection').style.display = 'none';
-			document.getElementById('savedDataSection').style.display = 'none';
-			document.getElementById('lookup_prompt').value = '';
-			document.getElementById('contact_content').innerHTML = '';
-			
-			// Re-enable input controls and restore original button text
-			document.getElementById('lookup_prompt').disabled = false;
-			const submitBtn = document.getElementById('submitBtn');
-			submitBtn.disabled = false;
-			submitBtn.innerHTML = 'Look Up Contact!';
-			
-			// Reset review buttons
-			const saveBtn = document.getElementById('saveBtn');
-			const rejectBtn = document.getElementById('rejectBtn');
-			saveBtn.disabled = false;
-			rejectBtn.disabled = false;
-			saveBtn.classList.remove('disabled-button');
-			rejectBtn.classList.remove('disabled-button');
-			
-			// Clear status and completion messages
-			const statusDiv = document.getElementById('status');
-			if (statusDiv) { statusDiv.remove(); }
-			const completionDiv = document.querySelector('.completion-message');
-			if (completionDiv) { completionDiv.remove(); }
-			const reviewBtns = document.querySelectorAll('#reviewSection button');
-			reviewBtns.forEach(btn => {
-				if (btn.innerHTML.includes('Start New Lookup') || btn.innerHTML.includes('View Saved Data')) {
-					btn.remove();
-				}
-			});
-			
-			// Reset global variables
-			executionId = null;
-			executionResumeUrl = null;
-			currentContactInfo = null;
-			
-			document.getElementById('lookupInput').scrollIntoView({ behavior: 'smooth' });
-		}
-	</script>
-</head>
-<body>
+        async function workflowWait(query) {
+            const maxCycles = 5; 
+            let currentCycle = 1;
 
-	<div class="header">
-		<img src="ai-joke/images/semkhor_transparent.png" alt="SEMKHOR Logo">
-	</div>
+            const pollCycle = async () => {
+                try {
+                    showStatus(`Waiting for AI result... (cycle ${currentCycle}/${maxCycles})`, 'info');
+                    
+                    // 2. Poll the n8n execution status (semkhor endpoint waits ~40 seconds internally)
+                    const pollUrl = `${N8N_WORKFLOW_DOMAIN}/api/v1/executions/${executionId}`;
+                    const response = await fetch(API_URL + 'ai/n8n-poll', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
+                        },
+                        body: JSON.stringify({
+                            url: pollUrl,
+                            headers: [{"name": "X-N8N-API-KEY", "value": "{auth:n8n_api_key}"}],
+                            // We expect the LLM output to be available here
+                            output_paths: [`data.resultData.runData["${LLM_NODE_NAME}"][0].data.main[0][0].json.message.content`]
+                        })
+                    });
 
-	<div class="panel" id="lookupInput">
-		Find contact information for...
-		<input type="text" id="lookup_prompt" placeholder="e.g., procurement manager of Bokku! Mart in East Lagos"><br>
-		<button id="submitBtn" onclick="submitContactPrompt()">Look Up Contact!</button>
-	</div>
-	
-	<div class="panel" id="reviewSection" style="display: none;">
-		<h3 style="margin-bottom: 10px;">Review AI-Generated Contact Information</h3>
-		<div id="contact_content"></div>
-		<button id="saveBtn" class="button_save" onclick="respondToSave(true)">Save to Google Sheets</button>
-		<button id="rejectBtn" class="button_reject" onclick="respondToSave(false)">Reject, Do Not Save</button>
-	</div>
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
 
-    <div class="panel" id="savedDataSection" style="display: none;">
-		<h3 style="margin-bottom: 10px; color: #5a67d8;">Previously Saved Contact Leads</h3>
-		<div id="savedDataTableContainer">
-			</div>
-        <button onclick="document.getElementById('savedDataSection').style.display='none'; document.getElementById('reviewSection').scrollIntoView({ behavior: 'smooth' });">Hide Table</button>
-	</div>
+                    const data = await response.json();
+                    
+                    // Check if we have a result and the status is 'waiting' (at the Wait node)
+                    if (data.response.status === 'waiting' && data.response.value1) {
+                        currentContactResult = {
+                            query: query,
+                            result: formatContactText(data.response.value1)
+                        };
+                        reviewContact(currentContactResult);
+                        return;
+                    }
 
+                    // Check if the semkhor endpoint timed out
+                    if (data.response.status === 'timeout') {
+                        if (currentCycle < maxCycles) {
+                            currentCycle++;
+                            // Retry after a short delay
+                            setTimeout(pollCycle, 3000); 
+                        } else {
+                            throw new Error('Maximum wait time exceeded. The AI did not reach the wait node in time.');
+                        }
+                    } else {
+                        // Unexpected status, throw error
+                        throw new Error(`Unexpected response status: ${data.response.status}`);
+                    }
 
+                } catch (error) {
+                    console.error('Error polling workflow:', error);
+                    showStatus(`Error polling: ${error.message}`, 'error');
+                    // Re-enable controls on error
+                    document.getElementById("submitBtn").disabled = false;
+                    document.getElementById("contact_query").disabled = false;
+                    document.getElementById('contact_content').innerHTML = '';
+                }
+            };
+
+            // Start first polling cycle
+            pollCycle();
+        }
+
+        function reviewContact(contactResult) {
+            // Present the contact info to the user for review
+            showStatus('Contact information found. Please review and decide whether to save.', 'success');
+            
+            document.getElementById('contact_content').innerHTML = 
+                `<p class="font-semibold text-indigo-600 mb-2">Query:</p><p class="mb-4">${contactResult.query}</p>` +
+                `<p class="font-semibold text-indigo-600 mb-2">Result:</p><pre>${contactResult.result}</pre>`;
+            
+            document.getElementById('contactInput').classList.add('hidden');
+            document.getElementById('contactReview').style.display = 'block';
+            
+            // Scroll to the review section
+            document.getElementById('contactReview').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        window.respond = async function(answer) {
+            // The key expected by your N8N Wait node to resume the workflow
+            const payload = {
+                saveToSheets: answer
+            };
+
+            const yesBtn = document.querySelector('#contactReview .button_yes');
+            const noBtn = document.querySelector('#contactReview .button_no');
+            const activeBtn = answer ? yesBtn : noBtn;
+            const originalText = activeBtn.innerHTML;
+            
+            showLoading(activeBtn, answer ? 'Saving...' : 'Discarding...');
+            
+            // Disable both buttons during processing
+            yesBtn.disabled = true;
+            noBtn.disabled = true;
+            
+            try {
+                // 3. Post payload to the n8n wait node to resume the workflow
+                const response = await fetch(API_URL + 'util/json-proxy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: executionResumeUrl, // Use the executionResumeUrl
+                        method: 'POST',
+                        headers: [{"name": "token", "value": "{auth:n8n_header}"}],
+                        data: payload
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // If saved, commit to Firestore as well for display in history
+                if (answer) {
+                    await saveToHistory(currentContactResult);
+                }
+
+                // Show final completion message
+                const completionMsg = answer ? 
+                    '🎉 Success! Contact info saved to history and workflow completed (saving to sheets in background)! 🚀' : 
+                    '✅ Workflow Complete! Data was discarded. 👍';
+                
+                const completionDiv = document.createElement('div');
+                completionDiv.className = 'w-full bg-green-500 text-white p-4 rounded-xl text-lg font-bold text-center shadow-lg mt-6';
+                document.getElementById('contactReview').appendChild(completionDiv);
+                
+                showStatus('Workflow completed successfully!', 'success');
+                
+                // Add a reset button
+                setTimeout(() => {
+                    const resetBtn = document.createElement('button');
+                    resetBtn.innerHTML = '🔄 Start New Lookup';
+                    resetBtn.onclick = resetForm;
+                    resetBtn.className = 'w-full mt-4 py-3 text-lg font-bold text-white rounded-xl transition duration-300 bg-indigo-500 hover:bg-indigo-600 shadow-md';
+                    document.getElementById('contactReview').appendChild(resetBtn);
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error responding or saving:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+                
+                // Re-enable buttons on error
+                yesBtn.disabled = false;
+                noBtn.disabled = false;
+                hideLoading(activeBtn, originalText);
+            }
+        }
+        
+        /**
+         * Saves the contact result to the user's private Firestore history.
+         */
+        async function saveToHistory(contactResult) {
+            if (!isAuthReady || !db) {
+                console.warn("Cannot save to history, Firebase not ready.");
+                return;
+            }
+            try {
+                const docRef = doc(collection(db, `artifacts/${appId}/users/${userId}/contact_lookups`));
+                await setDoc(docRef, {
+                    query: contactResult.query,
+                    result: contactResult.result,
+                    timestamp: serverTimestamp()
+                });
+                console.log("Contact successfully saved to Firestore history.");
+            } catch (e) {
+                console.error("Error writing document to history:", e);
+                showStatus("Error: Could not save data to history. See console.", 'error');
+            }
+        }
+
+        window.resetForm = function() {
+            // Reset the form for another lookup
+            document.getElementById('contactInput').classList.remove('hidden');
+            document.getElementById('contactReview').style.display = 'none';
+            document.getElementById('contact_query').value = '';
+            document.getElementById('contact_content').innerHTML = '';
+            
+            // Re-enable input controls and restore original button text
+            document.getElementById('contact_query').disabled = false;
+            const submitBtn = document.getElementById('submitBtn');
+            hideLoading(submitBtn, 'Look Up Contact!');
+            
+            // Clear status
+            const statusDiv = document.getElementById('status');
+            if (statusDiv) statusDiv.classList.add('hidden'); // Added check here
+            
+            // Remove completion message and reset button
+            const reviewDiv = document.getElementById('contactReview');
+            // Remove dynamically added elements (completion message and reset button)
+            Array.from(reviewDiv.children).forEach(child => {
+                if (child.className.includes('w-full mt-4') || child.className.includes('w-full bg-green-500')) {
+                    child.remove();
+                }
+            });
+            
+            // Reset review buttons
+            const yesBtn = document.querySelector('#contactReview .button_yes');
+            const noBtn = document.querySelector('#contactReview .button_no');
+            hideLoading(yesBtn, 'Yes, Save to History!');
+            hideLoading(noBtn, 'No, Discard');
+            
+            // Reset global variables
+            executionId = null;
+            executionResumeUrl = null;
+            currentContactResult = null;
+            
+            // Scroll back to top
+            document.getElementById('contactInput').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // FIX: Wrap initFirebase in a DOMContentLoaded listener to ensure all elements are available
+        document.addEventListener('DOMContentLoaded', initFirebase);
+        
+        // Remove the direct call: initFirebase();
+    </script>
 </body>
 </html>
