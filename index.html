@@ -8,36 +8,84 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Inter font -->
     <style>
+        /* BASE STYLES & FONT */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body { 
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Vibrant purple/blue gradient from reference */
+            min-height: 100vh;
+        }
 
-        /* Custom styles for animations and specific visual flair, keeping the joke generator's aesthetic */
+        /* PANEL & RAINBOW BORDER (KEY AESTHETIC) */
         .panel-bg {
-            /* Mimics the colorful background of the original panel */
             background: rgba(255, 255, 255, 0.95);
             position: relative;
             overflow: hidden;
+            border-radius: 1.625rem; /* rounded-3xl + extra radius */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: slideUp 0.8s ease-out forwards;
         }
         .panel-bg::before {
             content: '';
             position: absolute;
             top: -2px; left: -2px; right: -2px; bottom: -2px;
             background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
-            border-radius: 1.625rem; /* slightly larger than rounded-3xl */
+            border-radius: 1.8rem; /* slightly larger than the panel itself */
             z-index: -1;
             animation: rainbow 3s linear infinite;
         }
 
+        /* BUTTON BASE STYLE */
+        button {
+			font-weight: bold;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			position: relative;
+			overflow: hidden;
+		}
+        button:before {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: 0;
+			height: 0;
+			background: rgba(255,255,255,0.3);
+			border-radius: 50%;
+			transition: all 0.3s ease;
+			transform: translate(-50%, -50%);
+		}
+		button:hover:before {
+			width: 300px;
+			height: 300px;
+		}
+        button:hover {
+			transform: translateY(-2px) scale(1.01);
+		}
+
+
+        /* ANIMATIONS */
         @keyframes rainbow {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        @keyframes slideUp {
+			from {
+				transform: translateY(20px);
+				opacity: 0;
+			}
+			to {
+				transform: translateY(0);
+				opacity: 1;
+			}
+		}
+
+        /* LOADER */
         .loading {
             display: inline-block;
             width: 1.25rem;
@@ -47,33 +95,48 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+
+        /* STATUS MESSAGE STYLES */
+        .status-message {
+            border: 2px solid;
+            font-weight: bold;
+        }
+        .bg-blue-100 { border-color: #667eea; }
+        .bg-green-100 { border-color: #4ecdc4; }
+        .bg-red-100 { border-color: #ff6b6b; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 md:p-10 flex flex-col items-center bg-gradient-to-br from-indigo-500 to-purple-700 text-gray-800">
+<body class="p-4 md:p-10 flex flex-col items-center text-gray-800">
 
     <!-- Header / Logo -->
-    <div class="text-center mb-8">
-        <!-- Using a placeholder for the SEMKHOR logo -->
+    <div class="text-center mb-8 pt-4">
+        <!-- Using a placeholder for the SEMKHOR logo, styled to mimic the visual aesthetic -->
+        <div class="w-20 h-20 mx-auto mb-2 relative">
+            <div class="absolute inset-0 rounded-full animate-spin" style="background: conic-gradient(#4ecdc4, #ff6b6b, #45b7d1, #96ceb4, #ff6b6b);"></div>
+            <div class="absolute inset-2 bg-white rounded-full flex items-center justify-center">
+                <h1 class="text-xl font-extrabold text-indigo-700">S</h1>
+            </div>
+        </div>
         <h1 class="text-4xl font-extrabold text-white drop-shadow-lg">SEMKHOR</h1>
         <p class="text-indigo-200 mt-1">AI Contact & Data Lookup</p>
     </div>
 
     <!-- Main Input Panel -->
-    <div id="contactInput" class="panel-bg p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl transition duration-500 hover:shadow-indigo-500/50">
+    <div id="contactInput" class="panel-bg p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl transition duration-500 hover:shadow-indigo-500/50 opacity-0" style="animation-delay: 0.1s;">
         <p class="text-lg font-semibold text-center text-indigo-700 mb-4">
             Find contact information for...
         </p>
-        <input type="text" id="contact_query" placeholder="procurement manager of the Bokku! Mart in East Lagos" class="w-full p-4 border-2 border-indigo-500 rounded-xl text-lg mb-6 focus:border-cyan-500 focus:ring-0 transition duration-300">
+        <input type="text" id="contact_query" placeholder="procurement manager of the Bokku! Mart in East Lagos" class="w-full p-4 border-3 border-indigo-500 rounded-xl text-lg mb-6 focus:border-cyan-500 focus:ring-0 transition duration-300 font-bold text-center">
         <button id="submitBtn" onclick="submitPrompt()" class="w-full py-4 text-xl font-bold text-white rounded-xl shadow-lg transition duration-300 ease-in-out bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 hover:shadow-xl">
             Look Up Contact!
         </button>
     </div>
     
     <!-- Status Message Area -->
-    <div id="status" class="status-message w-full max-w-xl my-4 text-center font-medium p-3 rounded-lg hidden"></div>
+    <div id="status" class="status-message w-full max-w-xl my-4 text-center font-medium p-3 rounded-xl hidden"></div>
 
     <!-- Review Panel (Hidden by default) -->
-    <div id="contactReview" class="panel-bg p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl mt-8 transition duration-500" style="display:none;">
+    <div id="contactReview" class="panel-bg p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl mt-8 transition duration-500 opacity-0" style="display:none; animation-delay: 0.3s;">
         <h2 class="text-2xl font-bold text-center text-indigo-700 mb-4">Review Contact Information</h2>
         <p class="text-center text-gray-600 mb-4">Would you like to save this result to your history?</p>
         <div id="contact_content" class="bg-indigo-50 border-l-4 border-indigo-500 rounded-lg p-4 md:p-6 text-base md:text-lg whitespace-pre-wrap min-h-20 flex items-center justify-center text-gray-700 shadow-inner">
@@ -90,12 +153,26 @@
     </div>
 
     <!-- Previously Saved Contacts Section -->
-    <div id="historySection" class="bg-white p-6 md:p-8 w-full max-w-xl rounded-2xl shadow-xl mt-8 transition duration-500">
+    <!-- Applying similar rounded-3xl, shadow, and background styles for consistency -->
+    <div id="historySection" class="bg-white p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl mt-8 transition duration-500 opacity-0" style="animation: slideUp 0.8s ease-out forwards; animation-delay: 0.5s;">
         <h2 class="text-2xl font-bold text-indigo-700 mb-4 border-b pb-2">Your Saved Contacts (History)</h2>
         <div id="history_list" class="space-y-4">
             <p id="history_loading" class="text-gray-500">Loading history...</p>
             <p id="history_empty" class="text-gray-500 hidden">No contacts saved yet.</p>
             <!-- History items will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Google Sheet Fetch Tool (New Section for Second Workflow) -->
+    <div id="sheetFetchSection" class="bg-white p-6 md:p-8 w-full max-w-xl rounded-3xl shadow-2xl mt-8 transition duration-500 opacity-0" style="animation: slideUp 0.8s ease-out forwards; animation-delay: 0.7s;">
+        <h2 class="text-2xl font-bold text-indigo-700 mb-4 border-b pb-2">Google Sheet Data Fetch Tool</h2>
+        <p class="text-gray-600 mb-4">This uses your second N8N workflow to fetch all data saved to Google Sheets.</p>
+        <button id="fetchSheetBtn" onclick="fetchSheetData()" class="w-full py-3 text-lg font-bold text-white rounded-xl transition duration-300 ease-in-out bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 shadow-md">
+            Fetch Raw Sheet Data
+        </button>
+        <div id="sheet_results" class="mt-4 hidden">
+            <p class="font-bold text-indigo-600 mb-2">Raw Sheet Data (JSON):</p>
+            <pre class="bg-gray-100 p-3 border rounded-lg text-sm whitespace-pre-wrap max-h-64 overflow-auto"></pre>
         </div>
     </div>
     
@@ -104,27 +181,29 @@
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, doc, setDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc, setDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ====================================================================
-        // CONFIGURATION (PLEASE UPDATE THESE PLACEHOLDERS)
+        // CONFIGURATION (!!! MANDATORY !!!: UPDATE THESE PLACEHOLDERS)
+        // You MUST replace the N8N_WORKFLOW_DOMAIN placeholder below with your actual domain.
         // ====================================================================
         
-        // This is the full URL of your N8N Webhook Trigger node.
-        // E.g., 'https://your-workspace.app.n8n.cloud/webhook/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890'
-        const N8N_WEBHOOK_URL = "https://your-n8n-domain.app.n8n.cloud/webhook/YOUR_WEBHOOK_ID";
+        // 1. N8N Webhook URL (First Workflow: Lookup & Save)
+        // Path from the 'Webhook (Trigger)' node: d6c04913-2e31-4a0e-ac01-f8a5341fa133
+        // REPLACE THE DOMAIN BELOW with your actual n8n domain!
+        const N8N_WORKFLOW_DOMAIN = "https://your-n8n-domain.app.n8n.cloud"; // e.g., https://alexsemkhor.app.n8n.cloud
+        const N8N_WEBHOOK_URL = N8N_WORKFLOW_DOMAIN + "/webhook/d6c04913-2e31-4a0e-ac01-f8a5341fa133";
         
-        // This is the domain of your N8N workspace for the polling API call.
-        // E.g., 'https://alexsemkhor.app.n8n.cloud'
-        const N8N_WORKFLOW_DOMAIN = "https://your-n8n-domain.app.n8n.cloud";
+        // 2. LLM Node Name: Use the exact name of the node from the first workflow: 'Contact Lookup AI'
+        const LLM_NODE_NAME = "Contact Lookup AI";
 
-        // The name of the node where the contact data is returned in your N8N execution output.
-        // This path must match the JSON output field name you configured in the 'n8n-poll' tool.
-        // For the joke app, this was "Message a model". We assume your LLM node is the same.
-        const LLM_NODE_NAME = "Message a model";
+        // 3. N8N Webhook URL (Second Workflow: Get Rows)
+        // Path from the 'Webhook' node: f1a1833b-d2c0-4d22-b034-77090fdd24f4
+        const N8N_SHEET_FETCH_URL = N8N_WORKFLOW_DOMAIN + "/webhook/f1a1833b-d2c0-4d22-b034-77090fdd24f4";
 
         // ====================================================================
         // GLOBAL VARIABLES & FIREBASE SETUP
+        // (PLACEHOLDERS ADDED TO AVOID CRASHING IN LOCAL ENVIRONMENTS)
         // ====================================================================
         let db;
         let auth;
@@ -136,9 +215,21 @@
         let executionResumeUrl = null;
         let currentContactResult = null;
         
-        // Firestore path helpers
+        // Firestore path helpers - Using safe fallbacks for local testing
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-contact-lookup-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        // **FIX**: Providing a minimal, non-functional default Firebase config 
+        // to prevent immediate crash if running outside the Canvas environment.
+        const DEFAULT_FIREBASE_CONFIG = JSON.stringify({
+            apiKey: "AIzaSy_FAKE_KEY",
+            authDomain: "example.firebaseapp.com",
+            projectId: "example-project",
+            storageBucket: "example.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef"
+        });
+        
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : JSON.parse(DEFAULT_FIREBASE_CONFIG);
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         // SEMKHOR API constants (copied from joke app source)
@@ -147,6 +238,11 @@
 
         function initFirebase() {
             try {
+                // If the config is just the placeholder, display an error but don't crash
+                if (firebaseConfig.projectId === "example-project") {
+                     throw new Error("Missing Firebase configuration. History will not work.");
+                }
+                
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -174,10 +270,11 @@
                 // Fallback to anonymous ID if Firebase fails
                 userId = crypto.randomUUID();
                 isAuthReady = true;
-                // Note: We don't call showStatus here to avoid potential race conditions before the DOM is fully loaded.
                 const historyLoading = document.getElementById('history_loading');
                 if (historyLoading) {
-                    historyLoading.textContent = 'Error loading history: Firebase failed to initialize.';
+                    historyLoading.textContent = `Error loading history: ${e.message}`;
+                    historyLoading.classList.remove('text-gray-500');
+                    historyLoading.classList.add('text-red-600', 'font-bold');
                 }
             }
         }
@@ -186,7 +283,7 @@
          * Loads and displays the user's previously saved contacts from Firestore in real-time.
          */
         function loadHistory() {
-            if (!isAuthReady || !db) return;
+            if (!isAuthReady || !db || firebaseConfig.projectId === "example-project") return;
             
             const historyRef = collection(db, `artifacts/${appId}/users/${userId}/contact_lookups`);
             const q = query(historyRef);
@@ -255,7 +352,7 @@
             if (type === 'success') bgColor = 'bg-green-100 border-green-400 text-green-800';
             if (type === 'error') bgColor = 'bg-red-100 border-red-400 text-red-800';
             
-            statusDiv.className = `status-message w-full max-w-xl my-4 text-center font-medium p-3 rounded-lg border-2 ${bgColor}`;
+            statusDiv.className = `status-message w-full max-w-xl my-4 text-center font-medium p-3 rounded-xl border-2 ${bgColor}`;
             statusDiv.innerHTML = message;
         }
 
@@ -287,6 +384,12 @@
             const contactQuery = document.getElementById("contact_query").value.trim();
             if (!contactQuery) {
                 showStatus('Please enter a query for the contact search!', 'error');
+                return;
+            }
+            
+            // Validate N8N configuration before trying to fetch
+            if (N8N_WORKFLOW_DOMAIN.includes("your-n8n-domain")) {
+                showStatus('Configuration Error: Please update N8N_WORKFLOW_DOMAIN in the script with your actual domain!', 'error');
                 return;
             }
 
@@ -521,6 +624,71 @@
             } catch (e) {
                 console.error("Error writing document to history:", e);
                 showStatus("Error: Could not save data to history. See console.", 'error');
+            }
+        }
+
+        // ====================================================================
+        // SECOND WORKFLOW IMPLEMENTATION: Fetch Sheet Data
+        // ====================================================================
+
+        window.fetchSheetData = async function() {
+            const fetchBtn = document.getElementById("fetchSheetBtn");
+            const resultsDiv = document.getElementById("sheet_results");
+            const preElement = resultsDiv.querySelector('pre');
+            const originalText = fetchBtn.innerHTML;
+
+            // Validate N8N configuration
+            if (N8N_WORKFLOW_DOMAIN.includes("your-n8n-domain")) {
+                showStatus('Configuration Error: Please update N8N_WORKFLOW_DOMAIN in the script!', 'error');
+                return;
+            }
+
+            showLoading(fetchBtn, 'Fetching...');
+            resultsDiv.classList.add('hidden');
+            preElement.textContent = '';
+            showStatus('Triggering Google Sheet read workflow...', 'info');
+
+            try {
+                // Trigger the second workflow (Get Rows) via semkhor/api/util/json-proxy
+                const response = await fetch(API_URL + 'util/json-proxy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
+                    },
+                    body: JSON.stringify({
+                        url: N8N_SHEET_FETCH_URL, // Use the specific URL for the Get Rows workflow
+                        method: 'POST',
+                        headers: [{"name": "token", "value": "{auth:n8n_header}"}],
+                        data: {} // No data needed to get all rows
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                hideLoading(fetchBtn, originalText);
+
+                if (data.response && data.response.return) {
+                    // The 'return' field contains the data from the 'Respond to Webhook' node
+                    preElement.textContent = JSON.stringify(data.response.return, null, 2);
+                    resultsDiv.classList.remove('hidden');
+                    showStatus('Sheet data successfully fetched!', 'success');
+                } else {
+                    preElement.textContent = JSON.stringify(data, null, 2);
+                    resultsDiv.classList.remove('hidden');
+                    throw new Error('N8N workflow returned data, but structure was unexpected.');
+                }
+
+            } catch (error) {
+                console.error('Error fetching sheet data:', error);
+                hideLoading(fetchBtn, originalText);
+                showStatus(`Error fetching sheet data: ${error.message}. Check console and N8N workflow logs.`, 'error');
+                resultsDiv.classList.remove('hidden');
+                preElement.textContent = `ERROR: ${error.message}`;
             }
         }
 
