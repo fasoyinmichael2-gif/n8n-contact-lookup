@@ -117,13 +117,13 @@ API_URL = "https://www.semkhor.com/api/"; 
         const N8N_BASE_URL = "https://alexsemkhor.app.n8n.cloud"; 
         
 // ----------------------------------------------------------------------
-// ** FINALIZED CONFIGURATION - UPDATED WITH N8N WEBHOOK IDs **
+// ** FINALIZED CONFIGURATION - CORRECTED WITH N8N WEBHOOK IDs **
 // ----------------------------------------------------------------------
 
-// Webhook ID for triggering the main "Contact Lookup & Save" workflow (Webhook (Trigger) node)
+// Webhook ID for triggering the main "Contact Lookup & Save" workflow
 const CONTACT_WEBHOOK_ID = "4159bb9a-55c0-4b3f-8cde-f9a767c07182"; 
 
-// Webhook ID for triggering the "View Saved Data" workflow (Webhook node)
+// Webhook ID for triggering the "View Saved Data" workflow
 const SAVED_DATA_WEBHOOK_ID = "f1a1833b-d2c0-4d22-b034-77090fdd24f4";
 
 // Path assumes the AI node is named 'Contact Lookup AI'
@@ -210,8 +210,9 @@ const CONTACT_OUTPUT_PATH = "data.resultData.runData[\"Contact Lookup AI\"][0].d
 				const data = await response.json();
 				
 				// 2. Extract execution details from N8N's immediate response
-				executionId = data.response.executionId;
-				executionResumeUrl = data.response.executionResumeUrl;
+				// *** CORRECTED: Using data.return based on SEMKHOR API documentation ***
+				executionId = data.return.executionId; 
+				executionResumeUrl = data.return.executionResumeUrl;
 
 				if (!executionId || !executionResumeUrl) {
 					throw new Error('Missing execution data from workflow response');
@@ -396,7 +397,7 @@ const CONTACT_OUTPUT_PATH = "data.resultData.runData[\"Contact Lookup AI\"][0].d
                         'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
                     },
                     body: JSON.stringify({
-                        url: `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`, // ⬅️ **FIXED: Correctly uses the variable**
+                        url: `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`, // **FIXED: Correctly uses the variable**
                         method: 'POST',
                         headers: [{"name": "token", "value": "{auth:n8n_header}"}],
                         data: {"action": "get_all"}
@@ -406,24 +407,28 @@ const CONTACT_OUTPUT_PATH = "data.resultData.runData[\"Contact Lookup AI\"][0].d
                 if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
                 const data = await fetchSavedData.json();
 
-                // Assuming data.response.return is an array of saved contact objects
-                const savedContacts = data.response.return || []; 
-                
+                // Assuming data.return is an array of saved contact objects based on SEMKHOR API wrapper
+                const savedContacts = data.return || []; // **FIXED: Using data.return**                 
                 if (savedContacts.length === 0) {
                     resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet via the API.</p>';
                     return;
                 }
 
                 let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request</th><th>Contact Info Snippet</th><th>Saved At</th></tr></thead><tbody>';
-                
+                
+                // Updated field access to match the structure of your Google Sheets data
                 savedContacts.forEach(row => {
                     // Truncate the long Contact Info response for the table
-                    const snippet = (row.contact_info || row['Contact Name']).substring(0, 70) + '...'; // Using 'Contact Name' as an alternative field name
+                    // Using 'Contact Name' which holds the AI result in your n8n workflow
+                    const contactInfo = row['Contact Name'] || 'N/A';
+                    const request = row.Business || 'N/A';
+                    const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
+
                     tableHTML += `
                         <tr>
-                            <td>${row.request || row.Business}</td>
+                            <td>${request}</td>
                             <td>${snippet}</td>
-                            <td>${new Date(row.timestamp || row.Timestamp).toLocaleDateString()}</td>
+                            <td>${new Date(row.Timestamp).toLocaleDateString()}</td>
                         </tr>
                     `;
                 });
