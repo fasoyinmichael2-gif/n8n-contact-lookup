@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>AI Contact Lookup & Save</title>
+	<style>
+		/* Base CSS is taken from the joke flow to maintain consistent branding */
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: 'Comic Sans MS', 'Trebuchet MS', Arial, sans-serif;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+			padding: 20px;
+			color: #333;
+		}
+		.header { text-align: center; margin-bottom: 30px; animation: bounceIn 1s ease-out; }
+		.header img {
+			max-width: 200px;
+			height: auto;
+			filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+			transition: transform 0.3s ease;
+		}
+		.panel {
+			background: rgba(255, 255, 255, 0.95);
+			border-radius: 20px;
+			padding: 30px;
+			margin: 20px auto;
+			max-width: 800px; /* Increased width for table display */
+			box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+			transform: translateY(20px);
+			opacity: 0;
+			animation: slideUp 0.8s ease-out forwards;
+			position: relative;
+			overflow: hidden;
+		}
+		.panel::before {
+			content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+			background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+			border-radius: 22px; z-index: -1; animation: rainbow 3s linear infinite;
+		}
+		
+		#lookupInput, #reviewSection, #savedDataSection {
+			text-align: center; font-size: 1.2em; font-weight: bold; color: #5a67d8;
+			margin-bottom: 20px;
+		}
+		
+		input[type="text"] {
+			padding: 15px 20px; border: 3px solid #667eea; border-radius: 25px;
+			font-size: 1.1em; margin: 15px 10px; width: 400px; /* Wider input */
+			outline: none; transition: all 0.3s ease; font-family: inherit;
+		}
+		
+		button {
+			padding: 15px 30px; border: none; border-radius: 25px;
+			font-size: 1.1em; font-weight: bold; cursor: pointer;
+			transition: all 0.3s ease; margin: 10px; font-family: inherit;
+			position: relative; overflow: hidden;
+		}
+
+		#lookupInput button {
+			background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+			color: white; box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+		}
+		
+		.button_save {
+			background: linear-gradient(45deg, #4ecdc4, #44a08d);
+			color: white; box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+		}
+		.button_reject {
+			background: linear-gradient(45deg, #f093fb, #f5576c);
+			color: white; box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+		}
+		.button_view {
+			background: linear-gradient(45deg, #5a67d8, #667eea);
+			color: white; box-shadow: 0 5px 15px rgba(90, 103, 216, 0.4);
+		}
+        
+        .status-message {
+			text-align: center;
+			padding: 15px;
+			margin: 15px 0;
+			border-radius: 10px;
+			font-weight: bold;
+		}
+
+		.status-success {
+			background: #d4edda;
+			color: #155724;
+			border: 1px solid #c3e6cb;
+		}
+
+		.status-error {
+			background: #f8d7da;
+			color: #721c24;
+			border: 1px solid #f5c6cb;
+		}
+        
+        .loading {
+			display: inline-block;
+			width: 20px;
+			height: 20px;
+			border: 3px solid #f3f3f3;
+			border-top: 3px solid #667eea;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			margin-right: 10px;
+		}
+
+		#contact_content {
+			background: #f8f9ff; border-radius: 15px; padding: 20px; margin: 20px 0;
+			font-size: 1.1em; line-height: 1.6; border-left: 5px solid #667eea;
+			box-shadow: inset 0 0 10px rgba(102, 126, 234, 0.1);
+			min-height: 60px; text-align: left; white-space: pre-wrap;
+		}
+
+		/* Table for saved data */
+		#savedDataTable {
+			width: 100%; border-collapse: collapse; margin-top: 20px;
+			font-size: 0.9em;
+		}
+		#savedDataTable th, #savedDataTable td {
+			border: 1px solid #ddd; padding: 12px; text-align: left;
+		}
+		#savedDataTable th {
+			background-color: #f2f2f2; color: #333; font-weight: bold;
+		}
+		#savedDataTable tr:nth-child(even) { background-color: #f9f9f9; }
+		#savedDataTable tr:hover { background-color: #f0f0f0; }
+
+		.completion-message {
+			background: linear-gradient(45deg, #4ecdc4, #44a08d);
+			color: white; padding: 20px; border-radius: 15px; margin: 20px 0;
+			font-size: 1.2em; font-weight: bold; text-align: center;
+			box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+			animation: slideUp 0.5s ease-out;
+		}
+		.disabled-button { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+		
+		/* Keyframes from previous source for visual effects */
+		@keyframes bounceIn { 0% { transform: scale(0.3) rotate(-10deg); opacity: 0; } 50% { transform: scale(1.1) rotate(2deg); } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+		@keyframes slideUp { to { transform: translateY(0); opacity: 1; } }
+		@keyframes rainbow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .waiting-animation { /* Simple text for placeholder */ font-weight: normal; color: #667eea; }
+	</style>
+	<script>
+    /* --- API Configuration --- */
+    // Using the development/testing configuration, but forcing the production domain
+    const API_CLIENT_CODE = "abctooldyeco"; // Using the initial 'dev' value
+    const API_URL = "https://site01.semlab.net/api/"; // Using the initial 'dev' value
+    
+    // ** NOTE: This must match your n8n workspace URL **
+    const N8N_BASE_URL = "https://alexsemkhor.app.n8n.cloud"; 
+    
+    // ** FINALIZED CONFIGURATION FOR N8N WORKFLOWS **
+    // 1. TRIGGER WORKFLOW WEBHOOK PATH (from first workflow JSON)
+    const CONTACT_WEBHOOK_ID = "d6c04913-2e31-4a0e-ac01-f8a5341fa133";
+    // 2. SAVED DATA WEBHOOK PATH (from second workflow JSON)
+    const SAVED_DATA_WEBHOOK_ID = "f1a1833b-d2c0-4d22-b034-77090fdd24f4"; // MODIFIED to match second workflow's path
+    // 3. AI OUTPUT PATH
+    const CONTACT_OUTPUT_PATH = "data.resultData.runData[\"Contact Lookup AI\"][0].data.main[0][0].json.message.content";
+    
+    // Global variables to store execution data
+    let executionId = null;
+    let executionResumeUrl = null;
+    let currentContactInfo = null;
+
+    /* --- Utility Functions --- */
+    function showStatus(message, type = 'info') { 
+        const statusDiv = document.getElementById('status') || document.createElement('div');
+        if (!document.getElementById('status')) {
+            statusDiv.id = 'status';
+            statusDiv.classList.add('status-message');
+            document.getElementById('lookupInput').appendChild(statusDiv);
+        }
+        statusDiv.className = `status-message status-${type}`;
+        statusDiv.innerHTML = message;
+    }
+    function showLoading(element, text = 'Processing...') { 
+        element.innerHTML = `<span class="loading"></span>${text}`;
+        element.disabled = true;
+        element.classList.add('disabled-button');
+    }
+    function hideLoading(element, originalText) {
+        element.innerHTML = originalText;
+        element.disabled = false;
+        element.classList.remove('disabled-button');
+    }
+    function formatText(text) { 
+        // Simple text formatting, similar to the joke flow
+        return (text || '')
+            .replace(/\\n/g, '<br>')
+            .replace(/\\r/g, '')
+            .replace(/\\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+            .replace(/\\"/g, '"')
+            .replace(/\\'/g, "'")
+            .replace(/\\\\/g, '\\')
+            .trim();
+    }
+    
+    /* ------------------------------------------------------------------- */
+    
+    // Stage 1: Initial Prompt Submission (START WORKFLOW)
+    async function submitContactPrompt() {
+        const promptElement = document.getElementById("lookup_prompt");
+        const lookupPrompt = promptElement.value.trim();
+        const submitBtn = document.getElementById('submitBtn');
+        const originalText = submitBtn.innerHTML;
+
+        if (!lookupPrompt) {
+            showStatus('Please enter a request for contact information!', 'error');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        promptElement.disabled = true;
+        showLoading(submitBtn, 'Searching AI...');
+        document.getElementById('contact_content').innerHTML = '<div class="waiting-animation"></div>';
+        showStatus('Starting contact lookup workflow...', 'info');
+
+        try {
+            // 1. Trigger N8N workflow via semkhor json-proxy
+            const response = await fetch(API_URL+'util/json-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
+                },
+                body: JSON.stringify({
+                    url: `${N8N_BASE_URL}/webhook/${CONTACT_WEBHOOK_ID}`, 
+                    method: 'POST',
+                    headers: [{"name": "token", "value": "{auth:n8n_header}"}], 
+                    data: {"prompt": lookupPrompt}
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            
+            // 2. Extract execution details from N8N's immediate response
+            // MODIFIED: Correct path is data.response.return.executionId/executionResumeUrl
+            // based on the "Respond to Webhook" node's response body.
+            executionId = data.response.return.executionId; 
+            executionResumeUrl = data.response.return.executionResumeUrl; 
+
+            if (!executionId || !executionResumeUrl) {
+                throw new Error('Missing execution data from workflow response');
+            }
+
+            showStatus('AI is looking up contact details...', 'info');
+            
+            // 3. Start polling
+            await workflowWait(submitBtn, originalText);
+
+        } catch (error) {
+            console.error('Error submitting prompt:', error);
+            showStatus(`Error: ${error.message}`, 'error');
+            // Re-enable controls on error
+            submitBtn.disabled = false;
+            promptElement.disabled = false;
+            document.getElementById('contact_content').innerHTML = '';
+            hideLoading(submitBtn, originalText);
+        }
+    }
+
+    // Stage 2: Polling for AI result (PAUSE/POLL)
+    async function workflowWait(submitBtn, originalText) {
+        const maxCycles = 5; 
+        let currentCycle = 1;
+
+        const pollCycle = async () => {
+            try {
+                showStatus(`Polling for AI result... (cycle ${currentCycle}/${maxCycles})`, 'info');
+                
+                // Poll the n8n execution status (via semkhor ai/n8n-poll)
+                const response = await fetch(API_URL+'ai/n8n-poll', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
+                    },
+                    body: JSON.stringify({
+                        url: `${N8N_BASE_URL}/api/v1/executions/${executionId}`, 
+                        headers: [{"name": "X-N8N-API-KEY", "value": "{auth:n8n_api_key}"}], 
+                        output_paths: [CONTACT_OUTPUT_PATH] 
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                // Check if status is "waiting" and data is present (signalling the Wait node)
+                if (data.response.status === 'waiting' && data.response.value1) {
+                    currentContactInfo = data.response.value1;
+                    hideLoading(submitBtn, originalText); 
+                    reviewContactInfo(currentContactInfo);
+                    return; // Stop polling
+                }
+
+                // Check if the endpoint timed out
+                if (data.response.status === 'timeout' && currentCycle < maxCycles) {
+                    currentCycle++;
+                    showStatus(`AI is taking longer than usual... trying again (cycle ${currentCycle}/${maxCycles})`, 'info');
+                    setTimeout(pollCycle, 4000); 
+                } else if (data.response.status === 'timeout') {
+                    throw new Error('Maximum wait time exceeded. The workflow might have stalled or timed out completely.');
+                } else {
+                    throw new Error(`Unexpected response status: ${data.response.status}`);
+                }
+
+            } catch (error) {
+                console.error('Error polling workflow:', error);
+                showStatus(`Error waiting for result: ${error.message}`, 'error');
+                hideLoading(submitBtn, originalText);
+                document.getElementById("lookup_prompt").disabled = false;
+                document.getElementById('contact_content').innerHTML = '';
+            }
+        };
+
+        pollCycle();
+    }
+
+    // Stage 3: Display results and ask for save decision
+    function reviewContactInfo(info) {
+        showStatus('Contact information found!', 'success');
+        
+        const formattedInfo = formatText(info);
+        document.getElementById('contact_content').innerHTML = `**Request:** ${document.getElementById("lookup_prompt").value}<br><br>**AI Result:**<br>${formattedInfo}`;
+        
+        // Switch UI panels
+        document.getElementById('lookupInput').style.display = 'none';
+        document.getElementById('reviewSection').style.display = 'block';
+        
+        document.getElementById('reviewSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Stage 4: Resume workflow with user decision (SAVE/REJECT)
+    async function respondToSave(saveData) {
+        // MODIFIED: Simplified payload to only send the boolean required by the If node.
+        const payload = {
+            saveToSheets: saveData 
+        };
+
+        const saveBtn = document.getElementById('saveBtn');
+        const rejectBtn = document.getElementById('rejectBtn');
+        const activeBtn = saveData ? saveBtn : rejectBtn;
+        const originalText = activeBtn.innerHTML;
+        
+        showLoading(activeBtn, saveData ? 'Saving to Sheets...' : 'Canceling Save...');
+        saveBtn.disabled = true;
+        rejectBtn.disabled = true;
+        saveBtn.classList.add('disabled-button');
+        rejectBtn.classList.add('disabled-button');
+
+        try {
+            // Post the payload to the n8n Wait node resume URL
+            const response = await fetch(API_URL+'util/json-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE },
+                body: JSON.stringify({
+                    url: executionResumeUrl, 
+                    method: 'POST',
+                    headers: [{"name": "token", "value": "{auth:n8n_header}"}],
+                    data: payload 
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            hideLoading(activeBtn, originalText);
+            
+            const completionMsg = saveData ?	
+                '✅ Success! Contact details have been saved to Google Sheets. 💾' :	
+                '❌ Decision finalized. Data was NOT saved to Google Sheets. 👍';
+            
+            const completionDiv = document.createElement('div');
+            completionDiv.className = 'completion-message';
+            completionDiv.innerHTML = completionMsg;
+            document.getElementById('reviewSection').appendChild(completionDiv);
+            
+            showStatus('Workflow completed successfully!', 'success');
+            
+            // Show a reset button and the "View Saved Data" button
+            setTimeout(() => {
+                const resetBtn = document.createElement('button');
+                resetBtn.innerHTML = '🔄 Start New Lookup';
+                resetBtn.onclick = resetForm;
+                resetBtn.style.marginTop = '20px';
+                document.getElementById('reviewSection').appendChild(resetBtn);
+
+                const viewBtn = document.createElement('button');
+                viewBtn.innerHTML = '📂 View Saved Data';
+                viewBtn.onclick = viewSavedData;
+                viewBtn.classList.add('button_view');
+                document.getElementById('reviewSection').appendChild(viewBtn);
+
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error responding:', error);
+            showStatus(`Error resuming workflow: ${error.message}`, 'error');
+            
+            // Re-enable buttons on error
+            saveBtn.disabled = false;
+            rejectBtn.disabled = false;
+            saveBtn.classList.remove('disabled-button');
+            rejectBtn.classList.remove('disabled-button');
+            hideLoading(activeBtn, originalText);
+        }
+    }
+
+    // Feature: Display previously saved data
+    async function viewSavedData() {
+        const viewPanel = document.getElementById('savedDataSection');
+        const resultDiv = document.getElementById('savedDataTableContainer');
+        viewPanel.style.display = 'block';
+        resultDiv.innerHTML = '<div class="waiting-animation">Fetching saved data...</div>';
+
+        try {
+            // MODIFIED: Use the correct SAVED_DATA_WEBHOOK_ID constant
+            const SAVED_DATA_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`;
+
+            const fetchSavedData = await fetch(API_URL+'util/json-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
+                },
+                body: JSON.stringify({
+                    url: SAVED_DATA_WEBHOOK_URL,
+                    method: 'POST',
+                    headers: [{"name": "token", "value": "{auth:n8n_header}"}],
+                    data: {"action": "get_all"} 
+                })
+            });
+
+            if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
+            const data = await fetchSavedData.json();
+
+            // We assume the Google Sheet columns are named 'Business', 'Contact Info', and 'Timestamp'.
+            const savedContacts = data.response.return || []; 
+            
+            if (savedContacts.length === 0) {
+                resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet via the API. Ensure the "GET ALL" webhook is configured.</p>';
+                return;
+            }
+
+            let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request (Business)</th><th>Contact Info Snippet</th><th>Saved At (Timestamp)</th></tr></thead><tbody>';
+            
+            savedContacts.forEach(row => {
+                // Use the column names defined in the Google Sheets Append node: "Business", "Contact Info", "Timestamp"
+                const request = row.Business || row.request || 'N/A';
+                const contactInfo = row['Contact Info'] || row.contact_info || '';
+                const timestamp = row.Timestamp || row.timestamp || new Date().toISOString();
+
+                const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
+                const date = new Date(timestamp).toLocaleDateString();
+
+                tableHTML += `
+                    <tr>
+                        <td>${request}</td>
+                        <td>${snippet}</td>
+                        <td>${date}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            resultDiv.innerHTML = tableHTML;
+            document.getElementById('savedDataSection').scrollIntoView({ behavior: 'smooth' });
+
+
+        } catch (error) {
+            console.error('Error fetching saved data:', error);
+            resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}. Ensure the 'GET ALL' n8n workflow is active.</p>`;
+        }
+    }
+
+    function resetForm() {
+        // Clear all state and display the initial input panel
+        document.getElementById('lookupInput').style.display = 'block';
+        document.getElementById('reviewSection').style.display = 'none';
+        document.getElementById('savedDataSection').style.display = 'none';
+        document.getElementById('lookup_prompt').value = '';
+        document.getElementById('contact_content').innerHTML = '';
+        
+        // Re-enable input controls and restore original button text
+        document.getElementById('lookup_prompt').disabled = false;
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Look Up Contact!';
+        
+        // Reset review buttons
+        const saveBtn = document.getElementById('saveBtn');
+        const rejectBtn = document.getElementById('rejectBtn');
+        saveBtn.disabled = false;
+        rejectBtn.disabled = false;
+        saveBtn.classList.remove('disabled-button');
+        rejectBtn.classList.remove('disabled-button');
+        
+        // Clear status and completion messages
+        const statusDiv = document.getElementById('status');
+        if (statusDiv) { statusDiv.remove(); }
+        const completionDiv = document.querySelector('.completion-message');
+        if (completionDiv) { completionDiv.remove(); }
+        const reviewBtns = document.querySelectorAll('#reviewSection button');
+        reviewBtns.forEach(btn => {
+            if (btn.innerHTML.includes('Start New Lookup') || btn.innerHTML.includes('View Saved Data')) {
+                btn.remove();
+            }
+        });
+        
+        // Reset global variables
+        executionId = null;
+        executionResumeUrl = null;
+        currentContactInfo = null;
+        
+        document.getElementById('lookupInput').scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+</head>
+<body>
+
+	<div class="header">
+		<img src="ai-joke/images/semkhor_transparent.png" alt="SEMKHOR Logo">
+	</div>
+
+	<div class="panel" id="lookupInput">
+		Find contact information for...
+		<input type="text" id="lookup_prompt" placeholder="e.g., procurement manager of Bokku! Mart in East Lagos"><br>
+		<button id="submitBtn" onclick="submitContactPrompt()">Look Up Contact!</button>
+	</div>
+	
+	<div class="panel" id="reviewSection" style="display: none;">
+		<h3 style="margin-bottom: 10px;">Review AI-Generated Contact Information</h3>
+		<div id="contact_content"></div>
+		<button id="saveBtn" class="button_save" onclick="respondToSave(true)">Save to Google Sheets</button>
+		<button id="rejectBtn" class="button_reject" onclick="respondToSave(false)">Reject, Do Not Save</button>
+	</div>
+
+    <div class="panel" id="savedDataSection" style="display: none;">
+		<h3 style="margin-bottom: 10px; color: #5a67d8;">Previously Saved Contact Leads</h3>
+		<div id="savedDataTableContainer">
+			</div>
+        <button onclick="document.getElementById('savedDataSection').style.display='none'; document.getElementById('reviewSection').scrollIntoView({ behavior: 'smooth' });">Hide Table</button>
+	</div>
+
+
+</body>
+</html>
