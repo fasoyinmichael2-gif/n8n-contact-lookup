@@ -439,7 +439,7 @@ const API_URL = "https://www.semkhor.com/api/"; // Production API URL
             const data = await fetchSavedData.json();
 
             // We assume the Google Sheet columns are named 'Business', 'Contact Info', and 'Timestamp'.
-            const savedContacts = data.response.return.data || []; 
+            const savedContacts = data.return.data || data.return || []; 
             
             if (savedContacts.length === 0) {
                 resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet via the API. Ensure the "GET ALL" webhook is configured.</p>';
