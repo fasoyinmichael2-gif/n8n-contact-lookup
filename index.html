@@ -410,49 +410,44 @@ const API_URL = "https://www.semkhor.com/api/"; // Production API URL
         }
     }
 
-    // Feature: Display previously saved data
+    // Feature: Display previously saved data (Simplified - Direct N8N Call)
     async function viewSavedData() {
         const viewPanel = document.getElementById('savedDataSection');
         const resultDiv = document.getElementById('savedDataTableContainer');
         viewPanel.style.display = 'block';
-        resultDiv.innerHTML = '<div class="waiting-animation">Fetching saved data...</div>';
+        // MODIFIED: Update message to reflect reading last data
+        resultDiv.innerHTML = '<div class="waiting-animation">Fetching last saved data...</div>';
 
         try {
-            // MODIFIED: Use the correct SAVED_DATA_WEBHOOK_ID constant
-            const SAVED_DATA_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`;
-
-            const fetchSavedData = await fetch(API_URL+'util/json-proxy', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE
-                },
-                body: JSON.stringify({
-                    url: SAVED_DATA_WEBHOOK_URL,
-                    method: 'POST',
-                    headers: [{"name": "token", "value": "{auth:n8n_header}"}],
-                    data: {"action": "get_all"} 
-                })
+            // MODIFIED: Direct N8N WEBHOOK CALL (No SEMKHOR proxy)
+            const SAVED_DATA_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`; 
+            
+            const response = await fetch(SAVED_DATA_URL, {
+                method: 'POST', // N8N webhooks often require POST
+                headers: { 'Content-Type': 'application/json' },
+                // Sending an empty body, as the workflow is self-contained and webhook is set to None auth
+                body: JSON.stringify({}) 
             });
 
-            if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
-            const data = await fetchSavedData.json();
-
-            // We assume the Google Sheet columns are named 'Business', 'Contact Info', and 'Timestamp'.
-            const savedContacts = data.return.data || data.return || data.response.return.data || data.response.return || data.response.data || []; 
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
-            if (savedContacts.length === 0) {
-                resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet via the API. Ensure the "GET ALL" webhook is configured.</p>';
+            // MODIFIED: EXPECTING A CLEAN JSON ARRAY directly from N8N (as per new Response Body: ={{ $json }})
+            const savedContacts = await response.json(); 
+            
+            // Check if the array is empty or not an array 
+            if (!Array.isArray(savedContacts) || savedContacts.length === 0) {
+                resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet. Please save a contact first.</p>';
                 return;
             }
 
+            // The rest of the logic remains the same to build the table.
             let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request (Business)</th><th>Contact Info Snippet</th><th>Saved At (Timestamp)</th></tr></thead><tbody>';
             
             savedContacts.forEach(row => {
                 // Use the column names defined in the Google Sheets Append node: "Business", "Contact Info", "Timestamp"
-                const request = row.Business || row.request || 'N/A';
-                const contactInfo = row['Contact Info'] || row.contact_info || '';
-                const timestamp = row.Timestamp || row.timestamp || new Date().toISOString();
+                const request = row.Business || 'N/A';
+                const contactInfo = row['Contact Info'] || '';
+                const timestamp = row.Timestamp || new Date().toISOString();
 
                 const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
                 const date = new Date(timestamp).toLocaleDateString();
@@ -470,10 +465,9 @@ const API_URL = "https://www.semkhor.com/api/"; // Production API URL
             resultDiv.innerHTML = tableHTML;
             document.getElementById('savedDataSection').scrollIntoView({ behavior: 'smooth' });
 
-
         } catch (error) {
             console.error('Error fetching saved data:', error);
-            resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}. Ensure the 'GET ALL' n8n workflow is active.</p>`;
+            resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}.</p>`;
         }
     }
 
