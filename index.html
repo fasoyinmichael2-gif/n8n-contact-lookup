@@ -410,65 +410,30 @@ const API_URL = "https://www.semkhor.com/api/"; // Production API URL
         }
     }
 
-    // Feature: Display previously saved data (Simplified - Direct N8N Call)
+    // Feature: Display previously saved data (Simplified: Direct Link to Sheet)
     async function viewSavedData() {
-        const viewPanel = document.getElementById('savedDataSection');
-        const resultDiv = document.getElementById('savedDataTableContainer');
-        viewPanel.style.display = 'block';
-        // MODIFIED: Update message to reflect reading last data
-        resultDiv.innerHTML = '<div class="waiting-animation">Fetching last saved data...</div>';
-
-        try {
-            // MODIFIED: Direct N8N WEBHOOK CALL (No SEMKHOR proxy)
-            const SAVED_DATA_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`; 
-            
-            const response = await fetch(SAVED_DATA_URL, {
-                method: 'POST', // N8N webhooks often require POST
-                headers: { 'Content-Type': 'application/json' },
-                // Sending an empty body, as the workflow is self-contained and webhook is set to None auth
-                body: JSON.stringify({}) 
-            });
-
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            
-            // MODIFIED: EXPECTING A CLEAN JSON ARRAY directly from N8N (as per new Response Body: ={{ $json }})
-            const savedContacts = await response.json(); 
-            
-            // Check if the array is empty or not an array 
-            if (!Array.isArray(savedContacts) || savedContacts.length === 0) {
-                resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet. Please save a contact first.</p>';
-                return;
-            }
-
-            // The rest of the logic remains the same to build the table.
-            let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request (Business)</th><th>Contact Info Snippet</th><th>Saved At (Timestamp)</th></tr></thead><tbody>';
-            
-            savedContacts.forEach(row => {
-                // Use the column names defined in the Google Sheets Append node: "Business", "Contact Info", "Timestamp"
-                const request = row.Business || 'N/A';
-                const contactInfo = row['Contact Info'] || '';
-                const timestamp = row.Timestamp || new Date().toISOString();
-
-                const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
-                const date = new Date(timestamp).toLocaleDateString();
-
-                tableHTML += `
-                    <tr>
-                        <td>${request}</td>
-                        <td>${snippet}</td>
-                        <td>${date}</td>
-                    </tr>
-                `;
-            });
-
-            tableHTML += '</tbody></table>';
-            resultDiv.innerHTML = tableHTML;
-            document.getElementById('savedDataSection').scrollIntoView({ behavior: 'smooth' });
-
-        } catch (error) {
-            console.error('Error fetching saved data:', error);
-            resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}.</p>`;
+        const SHEET_URL = "https://docs.google.com/spreadsheets/d/15E13ShiEYhbN4FlwFplmK38rw4lZGQCll_U99CdqBuQ/edit?gid=0#gid=0";
+        
+        // Open the Google Sheet URL in a new browser tab/window
+        window.open(SHEET_URL, '_blank');
+        
+        // Optionally, display a success message temporarily on the UI
+        const statusDiv = document.getElementById('status') || document.createElement('div');
+        if (!document.getElementById('status')) {
+            statusDiv.id = 'status';
+            statusDiv.classList.add('status-message');
+            document.getElementById('lookupInput').appendChild(statusDiv);
         }
+        statusDiv.className = `status-message status-success`;
+        statusDiv.innerHTML = '📂 Opening Google Sheet in a new tab!';
+
+        // Hide the table panel if it was already showing
+        document.getElementById('savedDataSection').style.display = 'none';
+        
+        // Clear the message after a few seconds
+        setTimeout(() => {
+            if (statusDiv) { statusDiv.remove(); }
+        }, 3000);
     }
 
     function resetForm() {
