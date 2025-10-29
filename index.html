@@ -399,106 +399,111 @@
             hideLoading(activeBtn, originalText);
         }
     }
+async function viewSavedData() {
+    // Hide the review section and show the data container
+    document.getElementById('reviewSection').style.display = 'none';
+    const viewPanel = document.getElementById('savedDataSection');
+    const resultDiv = document.getElementById('savedDataTableContainer');
+    viewPanel.style.display = 'block';
+    resultDiv.innerHTML = '<div class="waiting-animation">Fetching saved contact data...</div>';
+    viewPanel.scrollIntoView({ behavior: 'smooth' });
 
-    // Feature: Load and display data from N8N (Secure SEMKHOR Proxy Method)
-    async function viewSavedData() {
-        // Clear any old dynamically generated buttons before fetching
-        document.querySelectorAll('#savedDataSection button[onclick="resetForm()"]').forEach(btn => btn.remove());
+    try {
+        // Use the SEMKHOR proxy URL 
+        const SAVED_DATA_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`; 
         
-        document.getElementById('reviewSection').style.display = 'none';
-        const viewPanel = document.getElementById('savedDataSection');
-        const resultDiv = document.getElementById('savedDataTableContainer');
-        viewPanel.style.display = 'block';
-        resultDiv.innerHTML = '<div class="waiting-animation">Fetching saved contact data...</div>';
-        viewPanel.scrollIntoView({ behavior: 'smooth' });
-
-        try {
-            // Use the SEMKHOR proxy URL (The only method proven not blocked by CORS)
-            const SAVED_DATA_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/${SAVED_DATA_WEBHOOK_ID}`; 
-            
-            const fetchSavedData = await fetch(API_URL+'util/json-proxy', {
+        const fetchSavedData = await fetch(API_URL+'util/json-proxy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE 
+            },
+            body: JSON.stringify({
+                url: SAVED_DATA_WEBHOOK_URL,
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'SEMKHOR-CLIENT-CODE': API_CLIENT_CODE 
-                },
-                body: JSON.stringify({
-                    url: SAVED_DATA_WEBHOOK_URL,
-                    method: 'POST',
-                    headers: [{"name": "token", "value": "{auth:n8n_header}"}], 
-                    data: {"action": "get_all"} 
-                })
-            });
+                headers: [{"name": "token", "value": "{auth:n8n_header}"}], 
+                data: {"action": "get_all"} 
+            })
+        });
 
-            if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
-            const data = await fetchSavedData.json();
+        if (!fetchSavedData.ok) throw new Error(`HTTP error! status: ${fetchSavedData.status}`);
+        const data = await fetchSavedData.json();
 
-            // *** FIX: Highly Resilient Path Logic ***
-            // The logic fails because data.response.return is undefined. We must handle that.
-            const rawResponse = data.response;
-            const rawResult = rawResponse && rawResponse.return ? rawResponse.return : null;
+        // --- FINAL DATA EXTRACTION LOGIC ---
+        // This logic handles the proxy wrapper and the nested N8N output structure.
 
-            // Check if the output is an array (nested under 'data' or is the result itself)
-            const savedContacts = (rawResult && rawResult.data && Array.isArray(rawResult.data)) ? rawResult.data : (Array.isArray(rawResult) ? rawResult : []);
+        const rawResponse = data.response;
+        
+        // This logic flattens the complex N8N output (which is an array of {json: {...}} objects)
+        let savedContacts = [];
+        if (Array.isArray(rawResponse) && rawResponse.length > 0 && rawResponse[0].json) {
+            // Case 1: Proxy returns array of {json: {...}} objects (The confirmed structure)
+            savedContacts = rawResponse.map(item => item.json);
+        } else if (rawResponse && !Array.isArray(rawResponse) && rawResponse.Business) {
+            // Case 2: Proxy returns a single object directly (if Limit was used)
+            savedContacts = [rawResponse];
+        }
+
+        // Check if the output is a valid array of contacts
+        if (!Array.isArray(savedContacts) || savedContacts.length === 0) {
+            resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet or invalid data returned. Please confirm data is in the sheet.</p>';
             
-            // Check if the output is a valid array of contacts
-            if (!Array.isArray(savedContacts) || savedContacts.length === 0) {
-                resultDiv.innerHTML = '<p style="font-weight: normal; color: #cc5555;">No saved data found in the spreadsheet or invalid data returned. Please confirm data is in the sheet.</p>';
-                
-                // *** FIX: Insert Reset Button on No Data ***
-                const resetBtn = document.createElement('button');
-                resetBtn.innerHTML = '🔄 Start New Lookup';
-                resetBtn.onclick = resetForm;
-                resetBtn.style.marginTop = '20px';
-                document.getElementById('savedDataSection').appendChild(resetBtn); 
-                
-                return;
-            }
-
-            // Build the table to display the data
-            let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request (Business)</th><th>Contact Info Snippet</th><th>Saved At (Timestamp)</th></tr></thead><tbody>';
-            
-            savedContacts.forEach(row => {
-                const request = row.Business || 'N/A';
-                const contactInfo = row['Contact Info'] || '';
-                const timestamp = row.Timestamp || new Date().toISOString();
-
-                const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
-                const date = new Date(timestamp).toLocaleDateString();
-
-                tableHTML += `
-                    <tr>
-                        <td>${request}</td>
-                        <td>${snippet}</td>
-                        <td>${date}</td>
-                    </tr>
-                `;
-            });
-
-            tableHTML += '</tbody></table>';
-            resultDiv.innerHTML = tableHTML;
-            
-            // Insert Reset Button after successful table rendering
+            // Insert Reset Button on No Data 
             const resetBtn = document.createElement('button');
             resetBtn.innerHTML = '🔄 Start New Lookup';
             resetBtn.onclick = resetForm;
             resetBtn.style.marginTop = '20px';
             document.getElementById('savedDataSection').appendChild(resetBtn); 
-
-        } catch (error) {
-            console.error('Error fetching saved data:', error);
-            // Display error
-            resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}. Please ensure your N8N workflow and credentials are active.</p>`;
             
-            // *** FIX: Insert Reset Button on Fetch Error ***
-            const resetBtn = document.createElement('button');
-            resetBtn.innerHTML = '🔄 Start New Lookup';
-            resetBtn.onclick = resetForm;
-            resetBtn.style.marginTop = '20px';
+            return;
+        }
+
+        // Build the table to display the data (forEach loop displays ALL items in the array)
+        let tableHTML = '<table id="savedDataTable"><thead><tr><th>Request (Business)</th><th>Contact Info Snippet</th><th>Saved At (Timestamp)</th></tr></thead><tbody>';
+        
+        savedContacts.forEach(row => {
+            const request = row.Business || 'N/A';
+            const contactInfo = row['Contact Info'] || '';
+            const timestamp = row.Timestamp || new Date().toISOString();
+
+            const snippet = contactInfo.substring(0, 70) + (contactInfo.length > 70 ? '...' : '');
+            const date = new Date(timestamp).toLocaleDateString();
+
+            tableHTML += `
+                <tr>
+                    <td>${request}</td>
+                    <td>${snippet}</td>
+                    <td>${date}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += '</tbody></table>';
+        resultDiv.innerHTML = tableHTML;
+        
+        // Insert Reset Button after successful table rendering
+        const resetBtn = document.createElement('button');
+        resetBtn.innerHTML = '🔄 Start New Lookup';
+        resetBtn.onclick = resetForm;
+        resetBtn.style.marginTop = '20px';
+        document.getElementById('savedDataSection').appendChild(resetBtn); 
+
+    } catch (error) {
+        console.error('Error fetching saved data:', error);
+        resultDiv.innerHTML = `<p style="font-weight: normal; color: #cc5555;">Failed to load saved data: ${error.message}. Please ensure your N8N workflow and credentials are active.</p>`;
+        
+        // Insert Reset Button on Fetch Error 
+        const resetBtn = document.createElement('button');
+        resetBtn.innerHTML = '🔄 Start New Lookup';
+        resetBtn.onclick = resetForm;
+        const hideBtn = document.querySelector('#savedDataSection button[onclick="document.getElementById(\'savedDataSection\').style.display=\'none\'; document.getElementById(\'reviewSection\').scrollIntoView({ behavior: \'smooth\' });"]');
+        if (hideBtn) {
+            hideBtn.insertAdjacentElement('afterend', resetBtn);
+        } else {
             document.getElementById('savedDataSection').appendChild(resetBtn); 
         }
-        document.getElementById('savedDataSection').scrollIntoView({ behavior: 'smooth' });
     }
+}
 
     function resetForm() {
         // Clear all state and display the initial input panel
@@ -572,4 +577,3 @@
 
 </body>
 </html>
-
